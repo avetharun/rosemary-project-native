@@ -16,7 +16,9 @@
 */
 
 #include <malloc.h>
-
+#include "imgui/imgui.h"
+#include "imgui/imgui_impl_opengl3.h"
+#include "imgui/imgui_impl_android.h"
 #define LOGI(...) ((void)__android_log_print(ANDROID_LOG_INFO, "AndroidProject1.NativeActivity", __VA_ARGS__))
 #define LOGW(...) ((void)__android_log_print(ANDROID_LOG_WARN, "AndroidProject1.NativeActivity", __VA_ARGS__))
 
@@ -125,13 +127,20 @@ static void engine_draw_frame(struct engine* engine) {
 		// No display.
 		return;
 	}
-
+	ImGui_ImplAndroid_NewFrame();
+	ImGui::NewFrame();
 	// Just fill the screen with a color.
 	glClearColor(((float)engine->state.x) / engine->width, engine->state.angle,
 		((float)engine->state.y) / engine->height, 1);
 	glClear(GL_COLOR_BUFFER_BIT);
+	
+	ImGui::Begin("Hello World!");
+		ImGui::Text("This is some text");
+	ImGui::End();
 
 	eglSwapBuffers(engine->display, engine->surface);
+	ImGui::EndFrame();
+	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
 /**
@@ -158,6 +167,7 @@ static void engine_term_display(struct engine* engine) {
 * Process the next input event.
 */
 static int32_t engine_handle_input(struct android_app* app, AInputEvent* event) {
+	ImGui_ImplAndroid_HandleInputEvent(event);
 	struct engine* engine = (struct engine*)app->userData;
 	if (AInputEvent_getType(event) == AINPUT_EVENT_TYPE_MOTION) {
 		engine->state.x = AMotionEvent_getX(event, 0);
@@ -199,6 +209,8 @@ static void engine_handle_cmd(struct android_app* app, int32_t cmd) {
 			ASensorEventQueue_setEventRate(engine->sensorEventQueue,
 				engine->accelerometerSensor, (1000L / 60) * 1000);
 		}
+		engine->animating = 1;
+		engine_draw_frame(engine);
 		break;
 	case APP_CMD_LOST_FOCUS:
 		// When our app loses focus, we stop monitoring the accelerometer.
@@ -241,7 +253,7 @@ void android_main(struct android_app* state) {
 	}
 
 	engine.animating = 1;
-
+	ImGui_ImplAndroid_Init(engine.app->window);
 	// loop waiting for stuff to do.
 
 	while (1) {
@@ -282,12 +294,6 @@ void android_main(struct android_app* state) {
 		}
 
 		if (engine.animating) {
-			// Done with events; draw next animation frame.
-			engine.state.angle += .01f;
-			if (engine.state.angle > 1) {
-				engine.state.angle = 0;
-			}
-
 			// Drawing is throttled to the screen update rate, so there
 			// is no need to do timing here.
 			engine_draw_frame(&engine);
