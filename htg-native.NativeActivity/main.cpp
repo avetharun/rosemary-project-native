@@ -97,6 +97,7 @@ static int engine_init_display(struct engine* engine) {
 		return -1;
 	}
 
+
 	eglQuerySurface(display, surface, EGL_WIDTH, &w);
 	eglQuerySurface(display, surface, EGL_HEIGHT, &h);
 
