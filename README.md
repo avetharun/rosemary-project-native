@@ -1,4 +1,4 @@
-# htg-native
+# Rosemary Project
 An implementation of [Hitogata](https://sites.google.com/site/vhitogata/), a VTubing software for Android and Desktop.
 
 Implementation will use a virtual camera instead of a window. 
