@@ -6,3 +6,8 @@ Implementation will use a virtual camera instead of a window, on both iOS, Andro
 Should also be able to output raw stream into a http webpage, to fetch via a web element (ie, in OBS)
 
 Usages of this software & backend code: UI scene creation, and a basic scripting language
+
+
+
+Thank: 
+[ImGui-Android](https://github.com/Ciremun/imgui-android)
