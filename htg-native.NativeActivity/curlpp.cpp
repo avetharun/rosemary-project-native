@@ -1,0 +1,12 @@
+#include <curlpp/src/cURLpp.cpp>
+#include <curlpp/src/Easy.cpp>
+#include <curlpp/src/Exception.cpp>
+#include <curlpp/src/Form.cpp>
+#include <curlpp/src/Info.cpp>
+#include <curlpp/src/Multi.cpp>
+#include <curlpp/src/OptionBase.cpp>
+#include <curlpp/src/Options.cpp>
+#include <curlpp/src/internal/CurlHandle.cpp>
+#include <curlpp/src/internal/OptionList.cpp>
+#include <curlpp/src/internal/OptionSetter.cpp>
+#include <curlpp/src/internal/SList.cpp>

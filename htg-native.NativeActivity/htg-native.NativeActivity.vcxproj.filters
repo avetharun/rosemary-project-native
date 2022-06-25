@@ -28,6 +28,34 @@
       <Filter>imgui</Filter>
     </ClInclude>
     <ClInclude Include="utils.hpp" />
+    <ClInclude Include="imgui\imgui_format.h">
+      <Filter>imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="imgui\imgui_uielement.h">
+      <Filter>imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="imgui\imgui_texture.h">
+      <Filter>imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="imgui\imstb_image.h">
+      <Filter>imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="json.hpp" />
+    <ClInclude Include="rsm_ui_man.h" />
+    <ClInclude Include="rsm_hooks.h" />
+    <ClInclude Include="rsm_renderer.h" />
+    <ClInclude Include="rsm_assets.h" />
+    <ClInclude Include="image_parse_face.h">
+      <Filter>dlib</Filter>
+    </ClInclude>
+    <ClInclude Include="ani.h" />
+    <ClInclude Include="cwerror.h" />
+    <ClInclude Include="imgui\implot.h">
+      <Filter>imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="imgui\implot_internal.h">
+      <Filter>imgui</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="android_native_app_glue.c" />
@@ -50,13 +78,35 @@
     <ClCompile Include="imgui\imgui_widgets.cpp">
       <Filter>imgui</Filter>
     </ClCompile>
+    <ClCompile Include="imgui\imgui_demo.cpp">
+      <Filter>imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="dlib\dlib_compile.cpp">
+      <Filter>dlib</Filter>
+    </ClCompile>
+    <ClCompile Include="image_parse_face.cpp">
+      <Filter>dlib</Filter>
+    </ClCompile>
+    <ClCompile Include="curlpp.cpp" />
+    <ClCompile Include="imgui\implot.cpp">
+      <Filter>imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="imgui\implot_items.cpp">
+      <Filter>imgui</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="imgui">
       <UniqueIdentifier>{11787d87-e491-4656-95c5-ac7d87d5877e}</UniqueIdentifier>
     </Filter>
+    <Filter Include="dlib">
+      <UniqueIdentifier>{26b65660-5aa1-4d3e-99ae-6e2ada9d7e9f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <None Include="cpp.hint" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="symbol_icon_src.txt" />
   </ItemGroup>
 </Project>

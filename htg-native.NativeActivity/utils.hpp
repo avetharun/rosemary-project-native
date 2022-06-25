@@ -38,12 +38,77 @@
       // Note: semicolon is NOT needed, as if it's put at the end, it will produce an intellisense warning. Apparently it's by design. Ignore it if it happens.
       // Original impl: https://github.com/avetharun/avetharun/blob/bf49a022c7021fb3200231722f7975f167e1cf9f/ave_libs.hpp#L308
                        // Also added assert handling
+#ifndef itoa
+char* itoa(int num, char* buffer, int base) {
+    int curr = 0;
 
+    if (num == 0) {
+        // Base case
+        buffer[curr++] = '0';
+        buffer[curr] = '\0';
+        return buffer;
+    }
+
+    int num_digits = 0;
+
+    if (num < 0) {
+        if (base == 10) {
+            num_digits++;
+            buffer[curr] = '-';
+            curr++;
+            // Make it positive and finally add the minus sign
+            num *= -1;
+        }
+        else
+            // Unsupported base. Return NULL
+            return NULL;
+    }
+
+    num_digits += (int)floor(log(num) / log(base)) + 1;
+
+    // Go through the digits one by one
+    // from left to right
+    while (curr < num_digits) {
+        // Get the base value. For example, 10^2 = 1000, for the third digit
+        int base_val = (int)pow(base, num_digits - 1 - curr);
+
+        // Get the numerical value
+        int num_val = num / base_val;
+
+        char value = num_val + '0';
+        buffer[curr] = value;
+
+        curr++;
+        num -= base_val * num_val;
+    }
+    buffer[curr] = '\0';
+    return buffer;
+}
+#endif
+#ifndef ftoa
+char* ftoa(float f)
+{
+    static char        buf[17];
+    char* cp = buf;
+    unsigned long    l, rem;
+
+    if (f < 0) {
+        *cp++ = '-';
+        f = -f;
+    }
+    l = (unsigned long)f;
+    f -= (float)l;
+    rem = (unsigned long)(f * 1e6);
+    sprintf(cp, "%lu.%6.6lu", l, rem);
+    return buf;
+}
+#endif
 #define _ALIB_FQUAL static inline
 #ifndef NDEBUG
 // Production builds should set NDEBUG=1
 #define NDEBUG false
 #endif
+#define alib_malloct(TYPE) (TYPE*)malloc(sizeof(TYPE))
 #ifdef WIN32
 bool alib_can_reach_mem(void* ptr) {
     __try {
@@ -169,6 +234,86 @@ bool alib_can_reach_mem(void* ptr) {
 #include <fstream>
 #include <sstream>
 #include <string>
+ // If size != 0, leave size as is
+_ALIB_FQUAL void __alib_internal_reqlen__f_impl(size_t* sz, const char* arr) {
+    if ((*sz) == 0) {
+        (*sz) = strlen(arr);
+    }
+}
+/* We want POSIX.1-2008 + XSI, i.e. SuSv4, features */
+#define _XOPEN_SOURCE 700
+
+/* Added on 2017-06-25:
+   If the C library can support 64-bit file sizes
+   and offsets, using the standard names,
+   these defines tell the C library to do so. */
+#define _LARGEFILE64_SOURCE
+#define _FILE_OFFSET_BITS 64 
+
+#include <stdlib.h>
+#include <unistd.h>
+#include <ftw.h>
+#include <time.h>
+#include <stdio.h>
+#include <string.h>
+#include <errno.h>
+#include <dirent.h>
+
+   /* POSIX.1 says each process has at least 20 file descriptors.
+    * Three of those belong to the standard streams.
+    * Here, we use a conservative estimate of 15 available;
+    * assuming we use at most two for other uses in this program,
+    * we should never run into any problems.
+    * Most trees are shallower than that, so it is efficient.
+    * Deeper trees are traversed fine, just a bit slower.
+    * (Linux allows typically hundreds to thousands of open files,
+    *  so you'll probably never see any issues even if you used
+    *  a much higher value, say a couple of hundred, but
+    *  15 is a safe, reasonable value.)
+   */
+#ifndef USE_FDS
+#define USE_FDS 15
+#endif
+
+
+_ALIB_FQUAL const char* __alib_strfmt_file(const char* fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    size_t bufsz = 0;
+    bufsz = snprintf(NULL, 0, fmt, args);
+    const char* _buf = (const char*)malloc(bufsz);
+    vsprintf((char*)_buf, fmt, args);
+    va_end(args);
+    return _buf;
+}
+_ALIB_FQUAL std::string alib_file_tree(std::string dirpath, int indent = 1)
+{
+        DIR* dir;
+        struct dirent* entry;
+        std::string __dirpath_cur = dirpath;
+        std::stringstream _s_out(dirpath + "\n");
+        __step:
+        if (!(dir = opendir(__dirpath_cur.c_str())))
+            return dirpath;
+
+        while ((entry = readdir(dir)) != NULL) {
+            if (entry->d_type == DT_DIR) {
+                char path[PATH_MAX];
+                if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+                    continue;
+                snprintf(path, PATH_MAX, "%s/%s", __dirpath_cur.c_str(), entry->d_name);
+                _s_out << __alib_strfmt_file("%*s[%s]\n", indent, "", entry->d_name);
+                goto __step;
+            }
+            else {
+                printf("%*s- %s\n", indent, "", entry->d_name);
+            }
+        }
+        closedir(dir);
+        return _s_out.str();
+}
+
+
 _ALIB_FQUAL std::string alib_file_read(std::ifstream& file) {
     std::ostringstream buf;
     buf << file.rdbuf();
@@ -204,14 +349,15 @@ _ALIB_FQUAL bool alib_file_exists(const char* name) {
     }
 }
 
-_ALIB_FQUAL void alib_file_write(const char* filen, const char* d) {
+_ALIB_FQUAL void alib_file_write(const char* filen, const char* d, size_t l = 0) {
     std::ofstream file(filen, std::ios::out | std::ios::binary);
-    size_t l = strlen(d);
+    __alib_internal_reqlen__f_impl(&l, d);
     file.write(d, l);
     file.close();
 }
-_ALIB_FQUAL void alib_file_write(std::ostream& file, const char* d) {
-    size_t l = strlen(d);
+// Note: does NOT close file after!
+_ALIB_FQUAL void alib_file_write(std::ostream& file, const char* d, size_t l = 0) {
+    __alib_internal_reqlen__f_impl(&l, d);
     file.write(d, l);
 }
 
@@ -235,9 +381,6 @@ _ALIB_FQUAL char* alib_gcwd() {
 #endif // ALIB_NO_FILE_UTILS
 
 
-
-
-
 #if defined(ALIB_FORCE_CONCAT) || (!defined(ALIB_NO_CONCAT))
 
 #define __concat_internal3(a, b, c) a##b##c
@@ -247,6 +390,10 @@ _ALIB_FQUAL char* alib_gcwd() {
 #define concat3(a, b, c) __concat_internal3(a, b, c)
 #define concat2(a, b) __concat_internal2(a, b)
 #endif // ALIB_NO_CONCAT
+
+
+// Note: ignore any "function definition for typedef_func_ty" or "Y is not defined" errors. They're temporary.
+#define d_typedef_func_ty(return_z, name, ...) typedef return_z (*name)(__VA_ARGS__);
 
 
 
@@ -289,7 +436,8 @@ inline_initializer _nn {
 #define _g_nn_internal__3__(line) ___nn_internal_concat(_g_nn_internal__2_1_(line), _g_nn_internal__2__(line), _un)
 
 
-#define _nn ___nn_internal_concat(_, _1_nn_internal__3__, _) // Create no-name object
+#define _nn_impl ___nn_internal_concat(_, _1_nn_internal__3__, _) // Create no-name object
+#define _nn _nn_impl
 #define _nng(line) ___nn_internal_concat(_, _g_nn_internal__3__(line), _) // Get no-name object at file line (LINE)
 
 #endif // ALIB_NO_NONAMES
@@ -300,6 +448,11 @@ inline_initializer _nn {
 // lambda-based runner function. Runs when program initializes all variables.
 struct alib_inline_run {
     alib_inline_run(std::function<void()> initFunc) {
+        initFunc();
+    }
+    d_typedef_func_ty(void, void_0a_f_impl);
+    template <typename T = void_0a_f_impl>
+    alib_inline_run(T initFunc) {
         initFunc();
     }
 };
@@ -329,8 +482,6 @@ bool alib_console_visible()
 #endif
 
 #if defined(ALIB_FORCE_FUNCPTR) || (!defined(ALIB_NO_FUNCPTR))
-// Note: ignore any "function definition for typedef_func_ty" or "Y is not defined" errors. They're temporary.
-#define d_typedef_func_ty(return_z, name, ...) typedef return_z (*name)(__VA_ARGS__);
 #define noop (void)0
 d_typedef_func_ty(int, int_2i_f, int, int)
 d_typedef_func_ty(int, int_1i_f, int)
@@ -421,13 +572,13 @@ _ALIB_FQUAL int alib_digitsInNum(long n, int base = 10)
 
 // Get digits of [num], formatted as ASCII (by default, pass false to disable)
 // arr[0] is the amount of digits in the array
+// Note: malloc 
 _ALIB_FQUAL char* alib_getDigitsOfNumber(int num, bool ascii = true) {
-    int amt_digits = alib_digitsInNum(num, 10) + 1;
+    int amt_digits = alib_digitsInNum(num, 10);
     if (amt_digits <= 0) {
         amt_digits = 1;
     }
-    char* digits = (char*)malloc(amt_digits);
-    *digits = amt_digits;
+    char* digits = (char*)malloc(amt_digits + 1);
     int i = 1;
     while (num != 0)
     {
@@ -437,6 +588,7 @@ _ALIB_FQUAL char* alib_getDigitsOfNumber(int num, bool ascii = true) {
         num /= 10;
         i++;
     }
+
     return digits;
 }
 
@@ -652,6 +804,12 @@ _ALIB_FQUAL const char* alib_va_arg_parse(const char* fmt, va_list args) {
     vsprintf((char*)_buf, fmt, args);
     return _buf;
 }
+_ALIB_FQUAL const char* alib_strfmtv(const char* fmt, va_list args) {
+    size_t bufsz = snprintf(NULL, 0, fmt, args);
+    const char* _buf = (const char*)malloc(bufsz);
+    vsprintf((char*)_buf, fmt, args);
+    return _buf;
+}
 _ALIB_FQUAL const char* alib_strfmt(const char* fmt, ...) {
     va_list args;
     va_start(args, fmt);
@@ -669,10 +827,28 @@ _ALIB_FQUAL va_list alib_va_arg_parse(char* padding, ...) {
     va_end(args);
     return args;
 }
-
+_ALIB_FQUAL const char* alib_strrepl(const char* in, char match, char repl_value) {
+    while (*(in++)) {
+        if (*in == match) {
+            (*(char*)in) = repl_value;
+        }
+    }
+    return in;
+}
 // Copies the sign-ed ness of A into B
 _ALIB_FQUAL void alib_copy_signed(signed int a, signed int* b) {
     *b = (a < 0) ? -*b : (*b < 0) ? -*b : *b;
+}
+template <typename T>
+_ALIB_FQUAL void alib_clampptr(T* out, T lower, T upper) {
+    *out = 
+        (* out <= lower) ? lower : // out <= lower : return lower
+        (*out <= upper)  ? *out :  // out <= upper : return out
+        upper;                     // out >  upper : return upper
+}
+template <typename T>
+_ALIB_FQUAL T alib_clamp(T n, T lower, T upper) {
+    return n <= lower ? lower : n <= upper ? n : upper;
 }
 #include <codecvt>
 #include <locale>
@@ -761,11 +937,14 @@ _ALIB_FQUAL std::string alib_upper(const char* s)
     return s2;
 }
 
-_ALIB_FQUAL int alib_percent(long double num, double percent) {
+_ALIB_FQUAL double alib_percent(long double num, double percent) {
     long double _n_d100 = (num / 100);
     return lroundl(_n_d100 * percent);
 }
-
+_ALIB_FQUAL float alib_percentf(float num, float percent) {
+    float _n_d100 = (num * 0.01);
+    return lroundf(_n_d100 * percent);
+}
 
 _ALIB_FQUAL int alib_percents(int base, std::string percent_str) {
     if ((alib_endswith(percent_str.c_str(), "%"))) percent_str.erase(percent_str.end());
@@ -788,6 +967,16 @@ _ALIB_FQUAL void alib_remove_any_of(std::vector<T> _v, T vy) {
         }
     }
     _v.shrink_to_fit();
+}
+
+template <typename T>
+_ALIB_FQUAL bool alib_contains_any_of(std::vector<T> _v, T vy) {
+    for (int i = 0; i < _v.size(); i++) {
+        if (_v.at(i) == vy) {
+            return true;
+        }
+    }
+    return false;
 }
 
 #endif // ALIB_NO_BYTE_UTILS
@@ -820,21 +1009,21 @@ _ALIB_FQUAL void alib_remove_any_of(std::vector<T> _v, T vy) {
 #include <vector>
 #include <map>
 template <typename T>
-void alib_invalidatev(std::vector<T> __v) {
+_ALIB_FQUAL void alib_invalidatev(std::vector<T> __v) {
     for (int i = 0; i < __v.size(); i++) {
         delete& __v.at(i);
     }
     __v.clear();
 }
 template <typename K = std::string, typename V>
-void alib_invalidatem(std::map<K, V> m) {
+_ALIB_FQUAL void alib_invalidatem(std::map<K, V> m) {
     for (const auto& kv : m) {
         delete kv.second;
     }
     m.clear();
 }
 template <typename V_T>
-void alib_remove_if(std::vector<V_T> _vec, std::function<bool(V_T)> _p) {
+_ALIB_FQUAL void alib_remove_if(std::vector<V_T> _vec, std::function<bool(V_T)> _p) {
     for (int i = 0; i < _vec.size(); i++) {
         if (_p(_vec.at(i))) {
             _vec.erase(_vec.begin() + i);
@@ -847,15 +1036,44 @@ void alib_remove_if(std::vector<V_T> _vec, std::function<bool(V_T)> _p) {
 #define alib_sleep_millis(millis) std::this_thread::sleep_for(std::chrono::milliseconds(millis));
 #define alib_sleep_second(second) std::this_thread::sleep_for(std::chrono::microseconds(second));
 
+std::string ___nn_alib_error_charp_str;
+#define alib_get_error() ___nn_alib_error_charp_str.c_str()
+#define alib_set_error(...) ___nn_alib_error_charp_str = alib_strfmt(__VA_ARGS__);
+
 #endif // __lib_aveth_utils_hpp
 
 
 // begin preprocessor defs that need to be explicitly defined
-#if defined(ALIB_ANDROID_LOGGING) && !defined(alib_android_logging_helper__)
+#if defined(ALIB_ANDROID) && !defined(alib_android_logging_helper__)
 #define alib_android_logging_helper__
 #if !defined(ALIB_PROJECT_NAME)
 #define ALIB_PROJECT_NAME "UnnamedAndroidProject (DEFINE USING #define ALIB_PROJECT_NAME '')"
 #endif
+_ALIB_FQUAL int android_fread(void* cookie, char* buf, int size) {
+    return AAsset_read((AAsset*)cookie, buf, size);
+}
+
+_ALIB_FQUAL int android_fwrite(void* cookie, const char* buf, int size) {
+    return EACCES; // can't provide write access to the apk
+}
+
+_ALIB_FQUAL fpos_t android_fseek(void* cookie, fpos_t offset, int whence) {
+    return AAsset_seek((AAsset*)cookie, offset, whence);
+}
+
+_ALIB_FQUAL int android_fclose(void* cookie) {
+    AAsset_close((AAsset*)cookie);
+    return 0;
+}
+_ALIB_FQUAL long android_ftell(void* cookie) {
+    return AAsset_getLength64((AAsset*)cookie);
+}
+_ALIB_FQUAL FILE* android_fopen(const char* fname, AAssetManager* _mgr) {
+    AAsset* asset = AAssetManager_open(_mgr, fname, 0);
+    if (!asset) return NULL;
+
+    return funopen(asset, android_fread, android_fwrite, android_fseek, android_fclose);
+}
 #define alib_LOGI(...) ((void)__android_log_print(ANDROID_LOG_INFO, ALIB_PROJECT_NAME, __VA_ARGS__))
 #define alib_LOGW(...) ((void)__android_log_print(ANDROID_LOG_WARN, ALIB_PROJECT_NAME, __VA_ARGS__))
 #define alib_LOGE(...) ((void)__android_log_print(ANDROID_LOG_ERROR, ALIB_PROJECT_NAME, __VA_ARGS__))

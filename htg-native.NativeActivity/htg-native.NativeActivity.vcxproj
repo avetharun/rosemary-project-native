@@ -48,43 +48,51 @@
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>Clang_5_0</PlatformToolset>
+    <UseOfStl>c++_static</UseOfStl>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>Clang_5_0</PlatformToolset>
+    <UseOfStl>c++_static</UseOfStl>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x86'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>Clang_5_0</PlatformToolset>
+    <UseOfStl>c++_static</UseOfStl>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x86'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>Clang_5_0</PlatformToolset>
+    <UseOfStl>c++_static</UseOfStl>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'" Label="Configuration">
     <UseDebugLibraries>true</UseDebugLibraries>
     <AndroidAPILevel>android-26</AndroidAPILevel>
     <PlatformToolset>Clang_5_0</PlatformToolset>
+    <UseOfStl>c++_static</UseOfStl>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'" Label="Configuration">
     <UseDebugLibraries>false</UseDebugLibraries>
     <AndroidAPILevel>android-26</AndroidAPILevel>
     <PlatformToolset>Clang_5_0</PlatformToolset>
+    <UseOfStl>c++_static</UseOfStl>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>Clang_5_0</PlatformToolset>
     <ThumbMode>Disabled</ThumbMode>
+    <UseOfStl>c++_static</UseOfStl>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>Clang_5_0</PlatformToolset>
     <ThumbMode>Disabled</ThumbMode>
+    <UseOfStl>c++_static</UseOfStl>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
@@ -116,23 +124,45 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'" />
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'" />
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'" />
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'" />
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" />
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" />
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x86'" />
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x86'" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
+    <IncludePath>C:\Code\android_include;$(IncludePath)</IncludePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
+    <IncludePath>C:\Code\android_include;$(IncludePath)</IncludePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
+    <IncludePath>C:\Code\android_include;$(IncludePath)</IncludePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
+    <IncludePath>C:\Code\android_include;$(IncludePath)</IncludePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <IncludePath>C:\Code\android_include;$(IncludePath)</IncludePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <IncludePath>C:\Code\android_include;$(IncludePath)</IncludePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x86'">
+    <IncludePath>C:\Code\android_include;$(IncludePath)</IncludePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x86'">
+    <IncludePath>C:\Code\android_include;$(IncludePath)</IncludePath>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
     <ClCompile>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <CompileAs>CompileAsCpp</CompileAs>
       <CppLanguageStandard>c++1z</CppLanguageStandard>
+      <PreprocessorDefinitions>IMGUI_IMPL_OPENGL_ES3;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <Verbose>false</Verbose>
+      <ExceptionHandling>Enabled</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <Optimization>Full</Optimization>
     </ClCompile>
     <Link>
-      <LibraryDependencies>%(LibraryDependencies);EGL;GLESv3;GLESv1_CM</LibraryDependencies>
+      <LibraryDependencies>%(LibraryDependencies);z;EGL;GLESv3;GLESv1_CM;m;android;log;curl</LibraryDependencies>
+      <AdditionalLibraryDirectories>D:\Projects\htg-native\htg-native.NativeActivity\libs\arm64-v8a;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
@@ -141,9 +171,15 @@
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <CompileAs>CompileAsCpp</CompileAs>
       <CppLanguageStandard>c++1z</CppLanguageStandard>
+      <PreprocessorDefinitions>IMGUI_IMPL_OPENGL_ES3;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <Verbose>false</Verbose>
+      <ExceptionHandling>Enabled</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <Optimization>Full</Optimization>
     </ClCompile>
     <Link>
-      <LibraryDependencies>%(LibraryDependencies);EGL;GLESv3;GLESv1_CM</LibraryDependencies>
+      <LibraryDependencies>%(LibraryDependencies);z;EGL;GLESv3;GLESv1_CM;m;android;log;curl</LibraryDependencies>
+      <AdditionalLibraryDirectories>D:\Projects\htg-native\htg-native.NativeActivity\libs\arm64-v8a;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
@@ -152,9 +188,15 @@
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <CompileAs>CompileAsCpp</CompileAs>
       <CppLanguageStandard>c++1z</CppLanguageStandard>
+      <PreprocessorDefinitions>IMGUI_IMPL_OPENGL_ES3;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <Verbose>false</Verbose>
+      <ExceptionHandling>Enabled</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <Optimization>Full</Optimization>
     </ClCompile>
     <Link>
-      <LibraryDependencies>%(LibraryDependencies);EGL;GLESv3;GLESv1_CM</LibraryDependencies>
+      <LibraryDependencies>%(LibraryDependencies);z;EGL;GLESv3;GLESv1_CM;m;android;log;curl</LibraryDependencies>
+      <AdditionalLibraryDirectories>D:\Projects\htg-native\htg-native.NativeActivity\libs\armeabi-v7a;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
@@ -163,9 +205,15 @@
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <CompileAs>CompileAsCpp</CompileAs>
       <CppLanguageStandard>c++1z</CppLanguageStandard>
+      <PreprocessorDefinitions>IMGUI_IMPL_OPENGL_ES3;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <Verbose>false</Verbose>
+      <ExceptionHandling>Enabled</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <Optimization>Full</Optimization>
     </ClCompile>
     <Link>
-      <LibraryDependencies>%(LibraryDependencies);EGL;GLESv3;GLESv1_CM</LibraryDependencies>
+      <LibraryDependencies>%(LibraryDependencies);z;EGL;GLESv3;GLESv1_CM;m;android;log;curl</LibraryDependencies>
+      <AdditionalLibraryDirectories>D:\Projects\htg-native\htg-native.NativeActivity\libs\armeabi-v7a;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -174,9 +222,15 @@
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <CompileAs>CompileAsCpp</CompileAs>
       <CppLanguageStandard>c++1z</CppLanguageStandard>
+      <PreprocessorDefinitions>IMGUI_IMPL_OPENGL_ES3;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <Verbose>false</Verbose>
+      <ExceptionHandling>Enabled</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <Optimization>Full</Optimization>
     </ClCompile>
     <Link>
-      <LibraryDependencies>%(LibraryDependencies);EGL;GLESv3;GLESv1_CM</LibraryDependencies>
+      <LibraryDependencies>%(LibraryDependencies);z;EGL;GLESv3;GLESv1_CM;m;android;log;curl</LibraryDependencies>
+      <AdditionalLibraryDirectories>D:\Projects\htg-native\htg-native.NativeActivity\libs\x86_64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -185,9 +239,15 @@
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <CompileAs>CompileAsCpp</CompileAs>
       <CppLanguageStandard>c++1z</CppLanguageStandard>
+      <PreprocessorDefinitions>IMGUI_IMPL_OPENGL_ES3;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <Verbose>false</Verbose>
+      <ExceptionHandling>Enabled</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <Optimization>Full</Optimization>
     </ClCompile>
     <Link>
-      <LibraryDependencies>%(LibraryDependencies);EGL;GLESv3;GLESv1_CM</LibraryDependencies>
+      <LibraryDependencies>%(LibraryDependencies);z;EGL;GLESv3;GLESv1_CM;m;android;log;curl</LibraryDependencies>
+      <AdditionalLibraryDirectories>D:\Projects\htg-native\htg-native.NativeActivity\libs\x86_64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x86'">
@@ -196,9 +256,15 @@
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <CompileAs>CompileAsCpp</CompileAs>
       <CppLanguageStandard>c++1z</CppLanguageStandard>
+      <PreprocessorDefinitions>IMGUI_IMPL_OPENGL_ES3;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <Verbose>false</Verbose>
+      <ExceptionHandling>Enabled</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <Optimization>Full</Optimization>
     </ClCompile>
     <Link>
-      <LibraryDependencies>%(LibraryDependencies);EGL;GLESv3;GLESv1_CM</LibraryDependencies>
+      <LibraryDependencies>%(LibraryDependencies);z;EGL;GLESv3;GLESv1_CM;m;android;log;curl</LibraryDependencies>
+      <AdditionalLibraryDirectories>D:\Projects\htg-native\htg-native.NativeActivity\libs\x86_64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x86'">
@@ -207,36 +273,65 @@
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <CompileAs>CompileAsCpp</CompileAs>
       <CppLanguageStandard>c++1z</CppLanguageStandard>
+      <PreprocessorDefinitions>IMGUI_IMPL_OPENGL_ES3;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <Verbose>false</Verbose>
+      <ExceptionHandling>Enabled</ExceptionHandling>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <Optimization>Full</Optimization>
     </ClCompile>
     <Link>
-      <LibraryDependencies>%(LibraryDependencies);EGL;GLESv3;GLESv1_CM</LibraryDependencies>
+      <LibraryDependencies>%(LibraryDependencies);z;EGL;GLESv3;GLESv1_CM;m;android;log;curl</LibraryDependencies>
+      <AdditionalLibraryDirectories>D:\Projects\htg-native\htg-native.NativeActivity\libs\x86_64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="ani.h" />
+    <ClInclude Include="cwerror.h" />
+    <ClInclude Include="imgui\implot.h" />
+    <ClInclude Include="imgui\implot_internal.h" />
+    <ClInclude Include="rsm_assets.h" />
+    <ClInclude Include="rsm_hooks.h" />
+    <ClInclude Include="image_parse_face.h" />
     <ClInclude Include="imgui\imconfig.h" />
     <ClInclude Include="imgui\imgui.h" />
+    <ClInclude Include="imgui\imgui_format.h" />
     <ClInclude Include="imgui\imgui_impl_android.h" />
     <ClInclude Include="imgui\imgui_impl_opengl3.h" />
     <ClInclude Include="imgui\imgui_internal.h" />
+    <ClInclude Include="imgui\imgui_texture.h" />
+    <ClInclude Include="imgui\imgui_uielement.h" />
+    <ClInclude Include="imgui\imstb_image.h" />
     <ClInclude Include="imgui\imstb_rectpack.h" />
     <ClInclude Include="imgui\imstb_textedit.h" />
     <ClInclude Include="imgui\imstb_truetype.h" />
+    <ClInclude Include="json.hpp" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="android_native_app_glue.h" />
+    <ClInclude Include="rsm_renderer.h" />
+    <ClInclude Include="rsm_ui_man.h" />
     <ClInclude Include="utils.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="android_native_app_glue.c" />
+    <ClCompile Include="curlpp.cpp" />
+    <ClCompile Include="dlib\dlib_compile.cpp" />
+    <ClCompile Include="image_parse_face.cpp" />
     <ClCompile Include="imgui\imgui.cpp" />
+    <ClCompile Include="imgui\imgui_demo.cpp" />
     <ClCompile Include="imgui\imgui_draw.cpp" />
     <ClCompile Include="imgui\imgui_impl_android.cpp" />
     <ClCompile Include="imgui\imgui_impl_opengl3.cpp" />
     <ClCompile Include="imgui\imgui_tables.cpp" />
     <ClCompile Include="imgui\imgui_widgets.cpp" />
+    <ClCompile Include="imgui\implot.cpp" />
+    <ClCompile Include="imgui\implot_items.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="cpp.hint" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="symbol_icon_src.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

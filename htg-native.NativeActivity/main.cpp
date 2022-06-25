@@ -1,302 +1,665 @@
-/*
-* Copyright (C) 2010 The Android Open Source Project
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-*      http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*
-*/
-
-#include <malloc.h>
+// dear imgui: standalone example application for Android + OpenGL ES 3
+// If you are new to dear imgui, see examples/README.txt and documentation at the top of imgui.cpp.
+#define ALIB_ANDROID
 #include "imgui/imgui.h"
-#include "imgui/imgui_impl_opengl3.h"
+#include "imgui/imgui_texture.h"
+#include "imgui/imgui_uielement.h"
+#include "imgui/imgui_format.h"
 #include "imgui/imgui_impl_android.h"
-#define LOGI(...) ((void)__android_log_print(ANDROID_LOG_INFO, "AndroidProject1.NativeActivity", __VA_ARGS__))
-#define LOGW(...) ((void)__android_log_print(ANDROID_LOG_WARN, "AndroidProject1.NativeActivity", __VA_ARGS__))
+#include "imgui/imgui_impl_opengl3.h"
 
-/**
-* Our saved state data.
-*/
-struct saved_state {
-	float angle;
-	int32_t x;
-	int32_t y;
+#include "utils.hpp"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "cwerror.h"
+
+
+#include "rsm_hooks.h"
+#include "rsm_ui_man.h"
+#include "rsm_renderer.h"
+
+#include "image_parse_face.h"
+
+#include "ani.h"
+
+#include <zlib.h>
+#include "json.hpp"
+
+// Data
+static EGLDisplay           g_EglDisplay = EGL_NO_DISPLAY;
+static EGLSurface           g_EglSurface = EGL_NO_SURFACE;
+static EGLContext           g_EglContext = EGL_NO_CONTEXT;
+static struct android_app* g_App = NULL;
+static bool                 g_Initialized = false;
+static char                 g_LogTag[] = "ImGuiExample";
+
+// Forward declarations of helper functions
+static int AndroidGetUnicodeChar(int keyCode, int metaState);
+static void AndroidToggleKeyboard();
+static void HideNavBar();
+const char* root_asset_folder = "/storage/emulated/0/avetharun/htg/";
+AAssetManager* AndroidGetAssetManager() {
+    return g_App->activity->assetManager;
+}
+ANativeActivity* AndroidGetActivity() {
+    return g_App->activity;
+}
+static const char* ReadRootFileBytes(const char* filename) {
+    std::string _f_tmp = root_asset_folder;
+    _f_tmp += filename;
+    return alib_file_read(filename).c_str();
+}
+static void WriteRootFileBytes(const char* filename, const char* bytes, size_t len = 0) {
+    alib_internal_reqlen(&len, bytes);
+    std::string _f_tmp = root_asset_folder;
+    _f_tmp += filename;
+    alib_file_write(filename, bytes, len);
+}
+static bool AssetExists(const char* filename) {
+    AAsset* asset_descriptor = AAssetManager_open(g_App->activity->assetManager, filename, AASSET_MODE_UNKNOWN);
+    if (asset_descriptor) {
+        AAsset_close(asset_descriptor);
+        return true;
+    }
+    return false;
+}
+// Helper to retrieve data placed into the /raw/ directory (res/raw)
+static const char* ReadAssetBytes(const char* filename, size_t* num_bytes_out = 0)
+{
+    char* out_data = nullptr;
+    size_t num_bytes = 0;
+    AAsset* asset_descriptor = AAssetManager_open(g_App->activity->assetManager, filename, AASSET_MODE_BUFFER);
+    if (asset_descriptor)
+    {
+    retry_read:
+        num_bytes = AAsset_getLength(asset_descriptor);
+        out_data = (char*)IM_ALLOC(num_bytes + 1);
+        out_data[num_bytes] = '\0';
+        size_t num_bytes_read = AAsset_read(asset_descriptor, out_data, num_bytes);
+        AAsset_close(asset_descriptor);
+        if (num_bytes != num_bytes_read) {
+            alib_LOGW("Asset %s was not read correctly. Bytes expected: %zx, Bytes read: %zx", filename, num_bytes, num_bytes_read);
+            goto retry_read;
+        }
+    }
+    else {
+        stbi__g_failure_reason = alib_strfmt("Asset %s not found.", filename);
+        //alib_LOGE("Asset %s not found.", filename);
+        return 0; 
+    }
+    if (num_bytes_out) { *num_bytes_out = num_bytes; }
+    return out_data;
+}
+nlohmann::json* _assets_strings_json__ = nullptr;
+
+static std::string ReadStringAsset(const char* string_id) {
+    if (!_assets_strings_json__) {
+        if (!AssetExists("strings.json")) {
+            return "No string asset.";
+        }
+        _assets_strings_json__ = alib_malloct(nlohmann::json);
+        *_assets_strings_json__ = nlohmann::json::parse(ReadAssetBytes("strings.json"));
+    }
+    if (_assets_strings_json__->contains(string_id)) {
+        return _assets_strings_json__->at(string_id).get<std::string>();
+    }
+    return "not found";
+}
+#include <sys/stat.h>
+
+// From assets/
+static std::string ReadAPKFileBytes(const char* file, size_t* len = 0) {
+    if (AssetExists(file)) {
+        FILE* apk_f = android_fopen(file, AndroidGetAssetManager());
+        // Determine file size
+        fseek(apk_f, 0, SEEK_END);
+        size_t size = ftell(apk_f);
+        char* out = new char[size + 4];
+        rewind(apk_f);
+        fread(out, sizeof(char), size, apk_f);
+        out[size + 1] = '\0';
+        std::string __out(out,size);
+        delete[] out;
+        if (len) { *len = size; }
+        return __out;
+    }
+    return alib_strfmt("Could not read or open file: %s",  file);
+}
+bool ImGui::LoadTextureFromAPK(const char* filename, GLuint* out_texture, int* out_width, int* out_height) {
+    size_t bytes_len = 0;
+    unsigned char* bytes = (unsigned char*)ReadAPKFileBytes(filename, &bytes_len).c_str();
+    if (!bytes) {
+        return 0; 
+    }
+    return LoadTextureFromMemory(bytes, bytes_len, out_texture, out_width, out_height);
+}
+const char* test_asset_bytes;
+void init(struct android_app* app)
+{
+    if (g_Initialized)
+        return;
+
+    g_App = app;
+    ANativeWindow_acquire(g_App->window);
+
+    // Initialize EGL
+    // This is mostly boilerplate code for EGL...
+    {
+        g_EglDisplay = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+        if (g_EglDisplay == EGL_NO_DISPLAY)
+            __android_log_print(ANDROID_LOG_ERROR, g_LogTag, "%s", "eglGetDisplay(EGL_DEFAULT_DISPLAY) returned EGL_NO_DISPLAY");
+
+        if (eglInitialize(g_EglDisplay, 0, 0) != EGL_TRUE)
+            __android_log_print(ANDROID_LOG_ERROR, g_LogTag, "%s", "eglInitialize() returned with an error");
+
+        const EGLint egl_attributes[] = { EGL_BLUE_SIZE, 8, EGL_GREEN_SIZE, 8, EGL_RED_SIZE, 8, EGL_DEPTH_SIZE, 24, EGL_SURFACE_TYPE, EGL_WINDOW_BIT, EGL_NONE };
+        EGLint num_configs = 0;
+        if (eglChooseConfig(g_EglDisplay, egl_attributes, nullptr, 0, &num_configs) != EGL_TRUE)
+            __android_log_print(ANDROID_LOG_ERROR, g_LogTag, "%s", "eglChooseConfig() returned with an error");
+        if (num_configs == 0)
+            __android_log_print(ANDROID_LOG_ERROR, g_LogTag, "%s", "eglChooseConfig() returned 0 matching config");
+
+        // Get the first matching config
+        EGLConfig egl_config;
+        eglChooseConfig(g_EglDisplay, egl_attributes, &egl_config, 1, &num_configs);
+        EGLint egl_format;
+        eglGetConfigAttrib(g_EglDisplay, egl_config, EGL_NATIVE_VISUAL_ID, &egl_format);
+        ANativeWindow_setBuffersGeometry(g_App->window, 0, 0, egl_format);
+
+        const EGLint egl_context_attributes[] = { EGL_CONTEXT_CLIENT_VERSION, 3, EGL_NONE };
+        g_EglContext = eglCreateContext(g_EglDisplay, egl_config, EGL_NO_CONTEXT, egl_context_attributes);
+
+        if (g_EglContext == EGL_NO_CONTEXT)
+            __android_log_print(ANDROID_LOG_ERROR, g_LogTag, "%s", "eglCreateContext() returned EGL_NO_CONTEXT");
+
+        g_EglSurface = eglCreateWindowSurface(g_EglDisplay, egl_config, g_App->window, NULL);
+        eglMakeCurrent(g_EglDisplay, g_EglSurface, g_EglSurface, g_EglContext);
+    }
+
+    // Setup Dear ImGui context
+    IMGUI_CHECKVERSION(); 
+    ImPlot::CreateContext();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO();
+
+    // Disable loading/saving of .ini file from disk.
+    // FIXME: Consider using LoadIniSettingsFromMemory() / SaveIniSettingsToMemory() to save in appropriate location for Android.
+    io.IniFilename = NULL;
+
+    // Setup Dear ImGui style
+    ImGui::StyleColorsDark();
+
+    // Setup Platform/Renderer backends
+    ImGui_ImplAndroid_Init(g_App->window);
+    ImGui_ImplOpenGL3_Init("#version 300 es");
+
+    // Load Fonts
+    ImFontConfig font_cfg;
+    font_cfg.SizePixels = 64.0f;
+    rsm::Fonts::default_font = io.Fonts->AddFontDefault(&font_cfg);
+    
+    void* arial_font_data = (void*)ReadAssetBytes("arial.ttf");
+    void* proggy_font_data = (void*)ReadAssetBytes("proggyclean.ttf");
+    void* symbols_font_data = (void*)ReadAssetBytes("symbols.ttf");
+    rsm::Fonts::arial = io.Fonts->AddFontFromMemoryTTF(arial_font_data, 12, 64);
+    rsm::Fonts::proggy = io.Fonts->AddFontFromMemoryTTF(proggy_font_data, 12, 64);
+    rsm::Fonts::symbols = io.Fonts->AddFontFromMemoryTTF(symbols_font_data, 24, 64);
+
+    // Arbitrary scale-up
+    // FIXME: Put some effort into DPI awareness
+    ImGui::GetStyle().ScaleAllSizes(6.0f);
+
+    g_Initialized = true;
+    test_asset_bytes = ReadAssetBytes("test.txt");
+    size_t uimglen = 0;
+    const char* uimgbytes = ReadAssetBytes("icon.png", &uimglen);
+    if (uimgbytes) {
+        ImGui::UnknownImageTexture = ImGui::ImageTexture::LoadTextureFromMemory(uimgbytes, uimglen);
+    }
+    // Initialize Android Native Interface
+    ImGui::GetStyle().ScrollbarSize = 12;
+    ANIEnv::init(g_App->activity->vm, "com.avetharun.rosemary", g_App->activity->clazz, g_App);
+    // run starter hooks
+    rsm::HookManager::RunWindowAvailable();
+    rsm::HookManager::RunStart();
+}
+float _time = 0.0f;
+namespace Icon{
+    rsm::ImageAsset console_64{};
+    rsm::ImageAsset settings{};
+    rsm::ImageAsset add_character{};
+    rsm::ImageAsset camera{};
+    rsm::ImageAsset app{};
 };
+struct DebugConsole {
+    static inline ImGuiTextBuffer debugWindowConsoleText = {};
+    static inline int m_scrollToBottom = false;
+    static void pushuf(std::string cstr) {
+        if (&debugWindowConsoleText == nullptr) { return; }
+        debugWindowConsoleText.append(cstr.c_str());
+        m_scrollToBottom = 10;
+    }
+    static void pushf(std::string fmt, ...) {
+        if (&debugWindowConsoleText == nullptr) { return; }
+        va_list args;
+        va_start(args, fmt);
+        debugWindowConsoleText.appendfv(fmt.c_str(), args);
+        va_end(args);
+        m_scrollToBottom = 10;
+    }
+    static void cwErrorHandler(const char* errs, uint32_t errid) {
+        if (errid == cwError::CW_NONE) {
+            pushf("%s\n%s", errs, ImRGB::resetstr());
+        }
+        else {
+            pushf("%s|%s\n%s", cwError::wtoh(errid), errs, ImRGB::resetstr());
+        }
+    }
 
-/**
-* Shared state for our app.
-*/
-struct engine {
-	struct android_app* app;
-
-	ASensorManager* sensorManager;
-	const ASensor* accelerometerSensor;
-	ASensorEventQueue* sensorEventQueue;
-
-	int animating;
-	EGLDisplay display;
-	EGLSurface surface;
-	EGLContext context;
-	int32_t width;
-	int32_t height;
-	struct saved_state state;
 };
+struct Settings_Assets : rsm::GenericHook {
+    static inline ani::SharedPreferences getSharedPreferences(const char* name = "alib:settings") {
+        JNIEnv* jni;
+        g_App->activity->vm->AttachCurrentThread(&jni, NULL);
+        return ani::SharedPreferences(jni, g_App->activity->clazz, name);
+    }
+    void Start() {
+        cwError::onError = DebugConsole::cwErrorHandler;
+        // get any settings variables
+        Settings_Assets::getSharedPreferences().getBoolean("use_usb", &GlobalState::UseSerialUSB, true);
+        Settings_Assets::getSharedPreferences().getBoolean("use_websock", &GlobalState::UseSerialWebsocket, false);
+        Settings_Assets::getSharedPreferences().getInt("websock_port", &GlobalState::SerialWebsocketPort, 8042);
+        cwError::serrof("%sUnpacked shared prefs", ImRGB(0, 255, 0).tostring());
+        cwError::serrof("test/test.txt returned %s", ReadAPKFileBytes("test/test.txt").c_str());
+    }
+    void Render() {
+        GlobalState::screen_size = ImGui::GetIO().DisplaySize;
+        GlobalState::ui_begin = { GlobalState::screen_size.x * 0.0001f,GlobalState::screen_size.y * 0.05f };
+    }
+    void PreSwap() {
+        ImGuiContext* g = ImGui::GetCurrentContext();
+        float font_sz = g->FontSize;
+        g->FontSize = font_sz * 0.5f;
+        g->DrawListSharedData.FontSize = font_sz * 0.5f;
+        ImGui::TextForeground(alib_strfmt("fps:%.2f", ImGui::GetIO().Framerate), { 0,32 });
+        g->FontSize = font_sz;
+    }
+};
+RSM_HOOK_ENABLE(Settings_Assets);
+struct ui_impl_debug : rsm::GenericHook {
+    bool open;
+    void Render() {
+        ImGui::BeginFullscreen();
+        ImGui::SetCursorPos(GlobalState::ui_begin);
+        if (ImGui::AndroidArrowButton("go_back")) {
+            GlobalState::ShowDebugWindow = false;
+            GlobalState::ShowMainWindow = true;
+        }
+        ImGui::SameLine();
+        float fsz_last = ImGui::GetCurrentWindow()->FontWindowScale;
+        ImGui::SetWindowFontScale(0.85f);
+        ImGui::Text("Debug Window");
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, {0,0});
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {0,0});
+        ImGui::BeginDragScrollableChild("##debug_console_window", { 0,0 }, true);
+        ImGui::SetWindowFontScale(0.5f);
+        ImGui::TextMulticolored(DebugConsole::debugWindowConsoleText.c_str());
+        ImGui::EndDragScrollableChild();
+        ImGui::PopStyleVar(2);
+        ImGui::SetWindowFontScale(fsz_last);
+        ImGui::EndFullscreen();
+    }
+};
+RSM_HOOK_ENABLE(ui_impl_debug);
+struct ui_impl_licenses : rsm::GenericHook {
+    const char* __license_text;
+    void Start() {
+    }
+    void Render() {
+        if (!__license_text) {
+            __license_text = ReadAssetBytes("licenses.txt");
+        }
+        ImGui::BeginFullscreen();
+        ImGui::SetCursorPos(GlobalState::ui_begin);
+        if (ImGui::AndroidArrowButton("go_back")) {
+            GlobalState::ShowLicenseWindow = false;
+            GlobalState::ShowSettingsWindow = true;
+        }
+        ImGui::BeginDragScrollableChild("##license_window_pane", { 0,0 }, true);
+        float fsz_last = ImGui::GetCurrentWindow()->FontWindowScale;
+        ImGui::SetWindowFontScale(0.35f);
+        ImGui::TextWrapped(__license_text);
+        ImGui::SetWindowFontScale(fsz_last);
+        ImGui::EndDragScrollableChild();
+        ImGui::EndFullscreen();
+    }
+};
+RSM_HOOK_ENABLE(ui_impl_licenses);
+struct ui_impl_main: rsm::GenericHook {
+    float __percent;
+    void Start() {
+    }
+    void WindowAvailable() {
+    }
+    void Render() {
+        __percent += ImGui::GetIO().DeltaTime * 8.0f;
+        ImGui::BeginFullscreen();
+        ImGui::SetCursorPos(GlobalState::ui_begin);
+        ImGui::PushFont(rsm::Fonts::symbols);
+        float fsz_last = ImGui::GetCurrentWindow()->FontWindowScale;
+        ImGui::SetWindowFontScale(1.0f);
+        ImVec2 tsz = ImGui::CalcTextSize("9$");
+        ImVec2 spos = {GlobalState::screen_size.x - ( tsz.x + (ImGui::GetStyle().ItemSpacing.x * 2)) ,GlobalState::ui_begin.y};
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0,0 });
+        ImGui::SetCursorPos(spos);
 
-/**
-* Initialize an EGL context for the current display.
-*/
-static int engine_init_display(struct engine* engine) {
-	// initialize OpenGL ES and EGL
+        ImGui::PushStyleColor(ImGuiCol_Button, { 0,0,0,0 });
+        if (ImGui::Button("$##settings_btn")) {
+            GlobalState::ShowSettingsWindow = true;
+            GlobalState::ShowMainWindow = false;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("9##debug_btn")) {
+            cwError::serrof("%sDebug window opened.", ImRGB(255, 255, 0, 0).tostring());
+            GlobalState::ShowDebugWindow = true;
+            GlobalState::ShowMainWindow = false;
+        }
+        ImGui::PopStyleColor();
+        ImVec2 _pos = ImGui::GetCursorPos();
+        ImGui::RectFilled({ 0,0 }, { GlobalState::screen_size.x, _pos.y }, ImGui::GetColorU32(ImGuiCol_Button));
+        ImGui::PopStyleVar();
+        ImGui::PopFont();
+        ImGui::SetWindowFontScale(fsz_last);
 
-	/*
-	* Here specify the attributes of the desired configuration.
-	* Below, we select an EGLConfig with at least 8 bits per color
-	* component compatible with on-screen windows
-	*/
-	const EGLint attribs[] = {
-		EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
-		EGL_BLUE_SIZE, 8,
-		EGL_GREEN_SIZE, 8,
-		EGL_RED_SIZE, 8,
-		EGL_NONE
-	};
-	EGLint w, h, format;
-	EGLint numConfigs;
-	EGLConfig config;
-	EGLSurface surface;
-	EGLContext context;
-
-	EGLDisplay display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
-
-	eglInitialize(display, 0, 0);
-
-	/* Here, the application chooses the configuration it desires. In this
-	* sample, we have a very simplified selection process, where we pick
-	* the first EGLConfig that matches our criteria */
-	eglChooseConfig(display, attribs, &config, 1, &numConfigs);
-
-	/* EGL_NATIVE_VISUAL_ID is an attribute of the EGLConfig that is
-	* guaranteed to be accepted by ANativeWindow_setBuffersGeometry().
-	* As soon as we picked a EGLConfig, we can safely reconfigure the
-	* ANativeWindow buffers to match, using EGL_NATIVE_VISUAL_ID. */
-	eglGetConfigAttrib(display, config, EGL_NATIVE_VISUAL_ID, &format);
-
-	ANativeWindow_setBuffersGeometry(engine->app->window, 0, 0, format);
-
-	surface = eglCreateWindowSurface(display, config, engine->app->window, NULL);
-	context = eglCreateContext(display, config, NULL, NULL);
-
-	if (eglMakeCurrent(display, surface, surface, context) == EGL_FALSE) {
-		LOGW("Unable to eglMakeCurrent");
-		return -1;
-	}
+        // End topnav
 
 
-	eglQuerySurface(display, surface, EGL_WIDTH, &w);
-	eglQuerySurface(display, surface, EGL_HEIGHT, &h);
+        ImGui::BeginDragScrollableChild("__main_scrollable", { 0,0 }, true);
+        ImGui::LoadingBar(__percent);
+        if (__percent > 100) { __percent = 0; }
+        ImGui::EndDragScrollableChild();
+        ImGui::EndFullscreen();
+    }
+    void PreSwap() {
+    }
+};
+RSM_HOOK_ENABLE(ui_impl_main);
 
-	engine->display = display;
-	engine->context = context;
-	engine->surface = surface;
-	engine->width = w;
-	engine->height = h;
-	engine->state.angle = 0;
+struct ui_impl_settings : rsm::GenericHook {
+    char __itoa_websocket_num[16];
+    int e;
+    void Start() {
+    }
+    void Render() {
+        ImGui::BeginFullscreen();
+        ImGui::SetCursorPos(GlobalState::ui_begin);
+        if (ImGui::AndroidArrowButton("go_back")) {
+            // Commit any values from the settings dialog into shared prefs
+            Settings_Assets::getSharedPreferences()
+                .edit()
+                    .putBoolean("use_usb", GlobalState::UseSerialUSB)
+                    .putBoolean("use_websock", GlobalState::UseSerialWebsocket)
+                    .putInt("websock_port", GlobalState::SerialWebsocketPort)
+                .commit();
+                ;
+            GlobalState::ShowSettingsWindow = false;
+            GlobalState::ShowMainWindow = true;
+        }
+        ImGui::BeginDragScrollableChild("##settings_window_pane", {0,0}, true);
+        ImGui::SetCursorPos({32, 16 });
+        // Begin networking settings
+        if (ImGui::CollapsingHeader("Advanced settings")) {
+            ImGui::ThumbSwitch("##settings_use_serial_USB", &GlobalState::UseSerialUSB, "Use USB");
+            ImGui::ThumbSwitch("##settings_use_serial_WS", &GlobalState::UseSerialWebsocket, "Use WebSocket");
+            ImGui::PushItemWidth(ImGui::CalcTextSize("######").x);
+            if (!GlobalState::UseSerialWebsocket) { ImGui::BeginDisabled(); }
+            bool __in_ws_port = ImGui::InputInt("##settings_serial_websocket_port", &GlobalState::SerialWebsocketPort, 0, 0, ImGuiInputTextFlags_CharsDecimal);
+            ImGui::PopItemWidth();
+            if (__in_ws_port) {
+                if (GlobalState::SerialWebsocketPort < 802) {
+                    GlobalState::SerialWebsocketPort = 802;
+                }
+                if (GlobalState::SerialWebsocketPort > 32755) {
+                    GlobalState::SerialWebsocketPort = 32755;
+                }
+            }
+            if (!GlobalState::UseSerialWebsocket) { ImGui::EndDisabled(); }
+        }
+        ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 512);
+        if (ImGui::TextButton("license_btn", "View licenses")) {
+            GlobalState::ShowSettingsWindow = false;
+            GlobalState::ShowLicenseWindow = true;
+        }
+        ImGui::UnderlineText();
 
-	// Initialize GL state.
-	glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_FASTEST);
-	glEnable(GL_CULL_FACE);
-	glShadeModel(GL_SMOOTH);
-	glDisable(GL_DEPTH_TEST);
 
-	return 0;
+        ImGui::EndDragScrollableChild();
+        ImGui::EndFullscreen();
+    }
+
+};
+RSM_HOOK_ENABLE(ui_impl_settings);
+void tick()
+{
+    if (g_EglDisplay == EGL_NO_DISPLAY)
+        return;
+
+    if (_time == 0.0f) {
+
+        rsm::HookManager::RunStart();
+        rsm::HookManager::RunPostStart();
+
+    }
+    if (GlobalState::ShowMainWindow) { ui_impl_main_runner->enabled = true; } else { ui_impl_main_runner->enabled = false; }
+    if (GlobalState::ShowSettingsWindow) { ui_impl_settings_runner->enabled = true; } else { ui_impl_settings_runner->enabled = false; }
+    if (GlobalState::ShowLicenseWindow) { ui_impl_licenses_runner->enabled = true; } else { ui_impl_licenses_runner->enabled = false; }
+    if (GlobalState::ShowDebugWindow) { ui_impl_debug_runner->enabled = true; } else { ui_impl_debug_runner->enabled = false; }
+    ImGuiIO& io = ImGui::GetIO();
+    static ImVec4 clear_color = ImVec4(0.1f, 0.1f, 0.1f, 1.00f);
+    glViewport(0, 0, (int)io.DisplaySize.x, (int)io.DisplaySize.y);
+    glClearColor(clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    _time += io.DeltaTime / 1000.0f;
+    // Open on-screen (soft) input if requested by Dear ImGui
+    static bool WantTextInputLast = false;
+    if ((io.WantTextInput && !WantTextInputLast) || (!io.WantTextInput && WantTextInputLast))
+        AndroidToggleKeyboard();
+    WantTextInputLast = io.WantTextInput;
+    // Start the Dear ImGui frame
+    ImGui_ImplOpenGL3_NewFrame();
+    ImGui_ImplAndroid_NewFrame();
+    ImGui::NewFrame();
+
+    rsm::HookManager::RunPreUpdate();
+    rsm::HookManager::RunUpdate();
+    rsm::HookManager::RunPostUpdate();
+    // Rendering
+    rsm::HookManager::RunPreRender();
+    rsm::HookManager::RunRender();
+    rsm::HookManager::RunPreSwap();
+    ImGui::Render();
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+    eglSwapBuffers(g_EglDisplay, g_EglSurface);
+    rsm::HookManager::RunPostRender();
+    ImGui::ElementStubImpl::ResetOffsets();
+    if (!Settings_Assets_runner->enabled) {
+        Settings_Assets_runner->enabled = true;
+    }
 }
 
-/**
-* Just the current frame in the display.
-*/
-static void engine_draw_frame(struct engine* engine) {
-	if (engine->display == NULL) {
-		// No display.
-		return;
-	}
-	ImGui_ImplAndroid_NewFrame();
-	ImGui::NewFrame();
-	// Just fill the screen with a color.
-	glClearColor(((float)engine->state.x) / engine->width, engine->state.angle,
-		((float)engine->state.y) / engine->height, 1);
-	glClear(GL_COLOR_BUFFER_BIT);
-	
-	ImGui::Begin("Hello World!");
-		ImGui::Text("This is some text");
-	ImGui::End();
+void shutdown()
+{
+    if (!g_Initialized)
+        return;
 
-	eglSwapBuffers(engine->display, engine->surface);
-	ImGui::EndFrame();
-	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+    Settings_Assets::getSharedPreferences()
+        .edit()
+        .putBoolean("use_usb", GlobalState::UseSerialUSB)
+        .putBoolean("use_websock", GlobalState::UseSerialWebsocket)
+        .putInt("websock_port", GlobalState::SerialWebsocketPort)
+        .commit();
+        ;
+
+    // Cleanup
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplAndroid_Shutdown();
+    ImGui::DestroyContext();
+
+    if (g_EglDisplay != EGL_NO_DISPLAY)
+    {
+        eglMakeCurrent(g_EglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+
+        if (g_EglContext != EGL_NO_CONTEXT)
+            eglDestroyContext(g_EglDisplay, g_EglContext);
+
+        if (g_EglSurface != EGL_NO_SURFACE)
+            eglDestroySurface(g_EglDisplay, g_EglSurface);
+
+        eglTerminate(g_EglDisplay);
+    }
+
+    g_EglDisplay = EGL_NO_DISPLAY;
+    g_EglContext = EGL_NO_CONTEXT;
+    g_EglSurface = EGL_NO_SURFACE;
+    ANativeWindow_release(g_App->window);
+
+    g_Initialized = false;
 }
 
-/**
-* Tear down the EGL context currently associated with the display.
-*/
-static void engine_term_display(struct engine* engine) {
-	if (engine->display != EGL_NO_DISPLAY) {
-		eglMakeCurrent(engine->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
-		if (engine->context != EGL_NO_CONTEXT) {
-			eglDestroyContext(engine->display, engine->context);
-		}
-		if (engine->surface != EGL_NO_SURFACE) {
-			eglDestroySurface(engine->display, engine->surface);
-		}
-		eglTerminate(engine->display);
-	}
-	engine->animating = 0;
-	engine->display = EGL_NO_DISPLAY;
-	engine->context = EGL_NO_CONTEXT;
-	engine->surface = EGL_NO_SURFACE;
+static void handleAppCmd(struct android_app* app, int32_t appCmd)
+{
+    switch (appCmd)
+    {
+    case APP_CMD_SAVE_STATE:
+        break;
+    case APP_CMD_INIT_WINDOW:
+        init(app);
+        break;
+    case APP_CMD_TERM_WINDOW:
+        shutdown();
+        rsm::HookManager::RunWindowUnavailable();
+        break;
+    case APP_CMD_GAINED_FOCUS:
+        rsm::HookManager::RunStart();
+        break;
+    case APP_CMD_LOST_FOCUS:
+        break;
+    }
 }
 
-/**
-* Process the next input event.
-*/
-static int32_t engine_handle_input(struct android_app* app, AInputEvent* event) {
-	ImGui_ImplAndroid_HandleInputEvent(event);
-	struct engine* engine = (struct engine*)app->userData;
-	if (AInputEvent_getType(event) == AINPUT_EVENT_TYPE_MOTION) {
-		engine->state.x = AMotionEvent_getX(event, 0);
-		engine->state.y = AMotionEvent_getY(event, 0);
-		return 1;
-	}
-	return 0;
+static int32_t handleInputEvent(struct android_app* app, AInputEvent* inputEvent)
+{
+    if (AKeyEvent_getAction(inputEvent))
+    {
+        int code = AKeyEvent_getKeyCode(inputEvent);
+        int meta_state = AMotionEvent_getMetaState(inputEvent);
+        int unicode_key = AndroidGetUnicodeChar(code, meta_state);
+        ImGui::GetIO().AddInputCharacter(unicode_key);
+    }
+    return ImGui_ImplAndroid_HandleInputEvent(inputEvent);
+}
+void android_main(struct android_app* app)
+{
+    app->onAppCmd = handleAppCmd;
+    app->onInputEvent = handleInputEvent;
+    while (true)
+    {
+        int out_events;
+        struct android_poll_source* out_data;
+
+        // Poll all events. If the app is not visible, this loop blocks until g_Initialized == true.
+        while (ALooper_pollAll(g_Initialized ? 0 : -1, NULL, &out_events, (void**)&out_data) >= 0)
+        {
+            // Process one event
+            if (out_data != NULL)
+                out_data->process(app, out_data);
+
+            // Exit the app by returning from within the infinite loop
+            if (app->destroyRequested != 0)
+            {
+                // shutdown() should have been called already while processing the
+                // app command APP_CMD_TERM_WINDOW. But we play save here
+                if (!g_Initialized)
+                    shutdown();
+
+                return;
+            }
+        }
+
+        // Initiate a new frame
+        tick();
+    }
 }
 
-/**
-* Process the next main command.
-*/
-static void engine_handle_cmd(struct android_app* app, int32_t cmd) {
-	struct engine* engine = (struct engine*)app->userData;
-	switch (cmd) {
-	case APP_CMD_SAVE_STATE:
-		// The system has asked us to save our current state.  Do so.
-		engine->app->savedState = malloc(sizeof(struct saved_state));
-		*((struct saved_state*)engine->app->savedState) = engine->state;
-		engine->app->savedStateSize = sizeof(struct saved_state);
-		break;
-	case APP_CMD_INIT_WINDOW:
-		// The window is being shown, get it ready.
-		if (engine->app->window != NULL) {
-			engine_init_display(engine);
-			engine_draw_frame(engine);
-		}
-		break;
-	case APP_CMD_TERM_WINDOW:
-		// The window is being hidden or closed, clean it up.
-		engine_term_display(engine);
-		break;
-	case APP_CMD_GAINED_FOCUS:
-		// When our app gains focus, we start monitoring the accelerometer.
-		if (engine->accelerometerSensor != NULL) {
-			ASensorEventQueue_enableSensor(engine->sensorEventQueue,
-				engine->accelerometerSensor);
-			// We'd like to get 60 events per second (in microseconds).
-			ASensorEventQueue_setEventRate(engine->sensorEventQueue,
-				engine->accelerometerSensor, (1000L / 60) * 1000);
-		}
-		engine->animating = 1;
-		engine_draw_frame(engine);
-		break;
-	case APP_CMD_LOST_FOCUS:
-		// When our app loses focus, we stop monitoring the accelerometer.
-		// This is to avoid consuming battery while not being used.
-		if (engine->accelerometerSensor != NULL) {
-			ASensorEventQueue_disableSensor(engine->sensorEventQueue,
-				engine->accelerometerSensor);
-		}
-		// Also stop animating.
-		engine->animating = 0;
-		engine_draw_frame(engine);
-		break;
-	}
+static void AndroidToggleKeyboard()
+{
+    JNIEnv* jni;
+    g_App->activity->vm->AttachCurrentThread(&jni, NULL);
+
+    jclass cls = jni->GetObjectClass(g_App->activity->clazz);
+    jmethodID methodID = jni->GetMethodID(cls, "getSystemService", "(Ljava/lang/String;)Ljava/lang/Object;");
+    jstring service_name = jni->NewStringUTF("input_method");
+    jobject input_service = jni->CallObjectMethod(g_App->activity->clazz, methodID, service_name);
+
+    jclass input_service_cls = jni->GetObjectClass(input_service);
+    methodID = jni->GetMethodID(input_service_cls, "toggleSoftInput", "(II)V");
+    jni->CallVoidMethod(input_service, methodID, 0, 0);
+
+    jni->DeleteLocalRef(service_name);
+
+    g_App->activity->vm->DetachCurrentThread();
 }
+static int AndroidGetUnicodeChar(int keyCode, int metaState)
+{
+    //https://stackoverflow.com/questions/21124051/receive-complete-android-unicode-input-in-c-c/43871301
 
-/**
-* This is the main entry point of a native application that is using
-* android_native_app_glue.  It runs in its own thread, with its own
-* event loop for receiving input events and doing other things.
-*/
-void android_main(struct android_app* state) {
-	struct engine engine;
+    int eventType = AKEY_EVENT_ACTION_DOWN;
+    JNIEnv* jni;
+    g_App->activity->vm->AttachCurrentThread(&jni, NULL);
 
-	memset(&engine, 0, sizeof(engine));
-	state->userData = &engine;
-	state->onAppCmd = engine_handle_cmd;
-	state->onInputEvent = engine_handle_input;
-	engine.app = state;
+    jclass class_key_event = jni->FindClass("android/view/KeyEvent");
 
-	// Prepare to monitor accelerometer
-	engine.sensorManager = ASensorManager_getInstanceForPackage("com.avetharun.htg");
-	engine.accelerometerSensor = ASensorManager_getDefaultSensor(engine.sensorManager,
-		ASENSOR_TYPE_ACCELEROMETER);
-	engine.sensorEventQueue = ASensorManager_createEventQueue(engine.sensorManager,
-		state->looper, LOOPER_ID_USER, NULL, NULL);
+    jmethodID method_get_unicode_char = jni->GetMethodID(class_key_event, "getUnicodeChar", "(I)I");
+    jmethodID eventConstructor = jni->GetMethodID(class_key_event, "<init>", "(II)V");
+    jobject eventObj = jni->NewObject(class_key_event, eventConstructor, eventType, keyCode);
 
-	if (state->savedState != NULL) {
-		// We are starting with a previous saved state; restore from it.
-		engine.state = *(struct saved_state*)state->savedState;
-	}
+    int unicodeKey = jni->CallIntMethod(eventObj, method_get_unicode_char, metaState);
+    
+    g_App->activity->vm->DetachCurrentThread();
 
-	engine.animating = 1;
-	ImGui_ImplAndroid_Init(engine.app->window);
-	// loop waiting for stuff to do.
+    return unicodeKey;
+}
+static void HideNavBar()
+{
+    JNIEnv* env{};
+    g_App->activity->vm->AttachCurrentThread(&env, NULL);
 
-	while (1) {
-		// Read all pending events.
-		int ident;
-		int events;
-		struct android_poll_source* source;
+    jclass activityClass = env->FindClass("android/app/NativeActivity");
+    jmethodID getWindow = env->GetMethodID(activityClass, "getWindow", "()Landroid/view/Window;");
 
-		// If not animating, we will block forever waiting for events.
-		// If animating, we loop until all events are read, then continue
-		// to draw the next frame of animation.
-		while ((ident = ALooper_pollAll(engine.animating ? 0 : -1, NULL, &events,
-			(void**)&source)) >= 0) {
+    jclass windowClass = env->FindClass("android/view/Window");
+    jmethodID getDecorView = env->GetMethodID(windowClass, "getDecorView", "()Landroid/view/View;");
 
-			// Process this event.
-			if (source != NULL) {
-				source->process(state, source);
-			}
+    jclass viewClass = env->FindClass("android/view/View");
+    jmethodID setSystemUiVisibility = env->GetMethodID(viewClass, "setSystemUiVisibility", "(I)V");
 
-			// If a sensor has data, process it now.
-			if (ident == LOOPER_ID_USER) {
-				if (engine.accelerometerSensor != NULL) {
-					ASensorEvent event;
-					while (ASensorEventQueue_getEvents(engine.sensorEventQueue,
-						&event, 1) > 0) {
-						LOGI("accelerometer: x=%f y=%f z=%f",
-							event.acceleration.x, event.acceleration.y,
-							event.acceleration.z);
-					}
-				}
-			}
+    jobject window = env->CallObjectMethod(g_App->activity->clazz, getWindow);
 
-			// Check if we are exiting.
-			if (state->destroyRequested != 0) {
-				engine_term_display(&engine);
-				return;
-			}
-		}
+    jobject decorView = env->CallObjectMethod(window, getDecorView);
 
-		if (engine.animating) {
-			// Drawing is throttled to the screen update rate, so there
-			// is no need to do timing here.
-			engine_draw_frame(&engine);
-		}
-	}
+    jfieldID flagFullscreenID = env->GetStaticFieldID(viewClass, "SYSTEM_UI_FLAG_FULLSCREEN", "I");
+    jfieldID flagHideNavigationID = env->GetStaticFieldID(viewClass, "SYSTEM_UI_FLAG_HIDE_NAVIGATION", "I");
+    jfieldID flagImmersiveStickyID = env->GetStaticFieldID(viewClass, "SYSTEM_UI_FLAG_IMMERSIVE_STICKY", "I");
+
+    const int flagFullscreen = env->GetStaticIntField(viewClass, flagFullscreenID);
+    const int flagHideNavigation = env->GetStaticIntField(viewClass, flagHideNavigationID);
+    const int flagImmersiveSticky = env->GetStaticIntField(viewClass, flagImmersiveStickyID);
+    const int flag = flagFullscreen | flagHideNavigation | flagImmersiveSticky;
+
+    env->CallVoidMethod(decorView, setSystemUiVisibility, flag);
+
+    g_App->activity->vm->DetachCurrentThread();
 }
