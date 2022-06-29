@@ -131,7 +131,6 @@
     <Content Include="assets\strings.json" />
     <Content Include="assets\appdata.json" />
     <Content Include="assets\symbols.ttf" />
-    <Content Include="assets\teapot.obj" />
     <Content Include="assets\test\test.txt" />
     <Content Include="assets\unknown_texture.png" />
     <Content Include="assets\unknown_texture.png.kra" />
