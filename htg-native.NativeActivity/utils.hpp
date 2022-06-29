@@ -108,6 +108,7 @@ char* ftoa(float f)
 // Production builds should set NDEBUG=1
 #define NDEBUG false
 #endif
+#define alib_malloca(TYPE, length) (TYPE*)malloc(length)
 #define alib_malloct(TYPE) (TYPE*)malloc(sizeof(TYPE))
 #ifdef WIN32
 bool alib_can_reach_mem(void* ptr) {
@@ -599,8 +600,8 @@ static const char* alib_bit_rep[16] = {
     "1100","1101","1110","1111",
 };
 
-// If size != 0, leave size as is
-_ALIB_FQUAL void alib_internal_reqlen(size_t* sz, const char* arr) {
+// If size != 0, leave size as is, otherwise size = strlen(arr)
+_ALIB_FQUAL void alib_reqlen(size_t* sz, const char* arr) {
     if ((*sz) == 0) {
         (*sz) = strlen(arr);
     }
@@ -635,7 +636,7 @@ _ALIB_FQUAL int alib_beginswith(const char* str, const char* prefix)
 // get position of char 
 _ALIB_FQUAL int alib_getchrpos(const char* src, char c, size_t len = 0)
 {
-    alib_internal_reqlen(&len, src);
+    alib_reqlen(&len, src);
     for (size_t i = 0; i < len; i++)
     {
         if (src[i] == c)
@@ -664,7 +665,7 @@ _ALIB_FQUAL int alib_streq(std::string src, const char* match) {
 }
 // Occurances of char `c` in `src`
 _ALIB_FQUAL size_t alib_chrocc(const char* src, char c, size_t len = 0) {
-    alib_internal_reqlen(&len, src);
+    alib_reqlen(&len, src);
     size_t occ = 0;
     for (size_t i = 0; i < len; i++) {
         if (src[i] == c) { occ++; }
@@ -673,7 +674,7 @@ _ALIB_FQUAL size_t alib_chrocc(const char* src, char c, size_t len = 0) {
 }
 #include <vector>
 _ALIB_FQUAL const char* alib_rmocc(const char* src, char c, size_t len = 0) {
-    alib_internal_reqlen(&len, src);
+    alib_reqlen(&len, src);
     std::vector<char> src_copy;
     for (int i = 0; i < len; i++) {
         if (src[i] == c) { continue; }
@@ -820,18 +821,29 @@ _ALIB_FQUAL const char* alib_strfmt(const char* fmt, ...) {
     va_end(args);
     return _buf;
 }
-
-_ALIB_FQUAL va_list alib_va_arg_parse(char* padding, ...) {
-    va_list args;
-    va_start(args, padding);
-    va_end(args);
-    return args;
-}
-_ALIB_FQUAL const char* alib_strrepl(const char* in, char match, char repl_value) {
+_ALIB_FQUAL const char* alib_chrrepl(const char* in, char match, char repl_value) {
     while (*(in++)) {
         if (*in == match) {
             (*(char*)in) = repl_value;
         }
+    }
+    return in;
+}
+// Unlike the character replacement version, this will be re-allocating on the stack if needed
+// Array will be trimmed after, make sure to free() it!
+_ALIB_FQUAL char* alib_strrepl(char* in, const char* match, const char* repl, size_t in_len = 0, size_t match_len = 0, size_t repl_len = 0) {
+    return; // NTIMPL
+    alib_reqlen(&in_len, in);
+    alib_reqlen(&match_len, match);
+    alib_reqlen(&repl_len, repl);
+
+    // amount of characters we have to work with
+    // Assumes we have < 12 instances of a thing we need to replace.
+    // If that's so, we will create a new one and copy it to that.
+    size_t amtww = in_len * 8 ;
+    char* tmp = alib_malloca(char, amtww);
+    for (int i = 0; i < in_len; i++) {
+        
     }
     return in;
 }

@@ -51,7 +51,7 @@ static const char* ReadRootFileBytes(const char* filename) {
     return alib_file_read(filename).c_str();
 }
 static void WriteRootFileBytes(const char* filename, const char* bytes, size_t len = 0) {
-    alib_internal_reqlen(&len, bytes);
+    alib_reqlen(&len, bytes);
     std::string _f_tmp = root_asset_folder;
     _f_tmp += filename;
     alib_file_write(filename, bytes, len);
