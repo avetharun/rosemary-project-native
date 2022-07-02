@@ -162,7 +162,8 @@
     </ClCompile>
     <Link>
       <LibraryDependencies>%(LibraryDependencies);z;EGL;GLESv3;GLESv1_CM;m;android;log;curl</LibraryDependencies>
-      <AdditionalLibraryDirectories>D:\Projects\htg-native\htg-native.NativeActivity\libs\arm64-v8a;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(MSBuildProjectDirectory)\libs\arm64-v8a;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <VerboseOutput>false</VerboseOutput>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
@@ -196,7 +197,7 @@
     </ClCompile>
     <Link>
       <LibraryDependencies>%(LibraryDependencies);z;EGL;GLESv3;GLESv1_CM;m;android;log;curl</LibraryDependencies>
-      <AdditionalLibraryDirectories>D:\Projects\htg-native\htg-native.NativeActivity\libs\armeabi-v7a;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(MSBuildProjectDirectory)\libs\armeabi-v7a;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">

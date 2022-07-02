@@ -1,5 +1,13 @@
 #ifndef __lib_aveth_utils_hpp
 #define __lib_aveth_utils_hpp
+//  ALIB: A C-Style programming utility header for tedious tasks.
+//
+//  Any instance of array creation or object creation is handled using the C-style malloc()/free() functions!
+//
+//
+
+
+
 /** - https://github.com/avetharun/avetharun/blob/main/ave_libs.hpp
  @copyright Avetharun 2021-2022 - GNU-GPL3-a
  Let's keep this simple. It follows the GNU GPL3 license, with very few modifications and exceptions.
@@ -38,6 +46,11 @@
       // Note: semicolon is NOT needed, as if it's put at the end, it will produce an intellisense warning. Apparently it's by design. Ignore it if it happens.
       // Original impl: https://github.com/avetharun/avetharun/blob/bf49a022c7021fb3200231722f7975f167e1cf9f/ave_libs.hpp#L308
                        // Also added assert handling
+#include <string>
+std::string ___nn_alib_error_charp_str;
+#define alib_get_error() ___nn_alib_error_charp_str.c_str()
+#define alib_set_error(...) ___nn_alib_error_charp_str = alib_strfmt(__VA_ARGS__);
+
 #ifndef itoa
 char* itoa(int num, char* buffer, int base) {
     int curr = 0;
@@ -289,29 +302,29 @@ _ALIB_FQUAL const char* __alib_strfmt_file(const char* fmt, ...) {
 }
 _ALIB_FQUAL std::string alib_file_tree(std::string dirpath, int indent = 1)
 {
-        DIR* dir;
-        struct dirent* entry;
-        std::string __dirpath_cur = dirpath;
-        std::stringstream _s_out(dirpath + "\n");
-        __step:
-        if (!(dir = opendir(__dirpath_cur.c_str())))
-            return dirpath;
+    DIR* dir;
+    struct dirent* entry;
+    std::string __dirpath_cur = dirpath;
+    std::stringstream _s_out(dirpath + "\n");
+__step:
+    if (!(dir = opendir(__dirpath_cur.c_str())))
+        return dirpath;
 
-        while ((entry = readdir(dir)) != NULL) {
-            if (entry->d_type == DT_DIR) {
-                char path[PATH_MAX];
-                if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
-                    continue;
-                snprintf(path, PATH_MAX, "%s/%s", __dirpath_cur.c_str(), entry->d_name);
-                _s_out << __alib_strfmt_file("%*s[%s]\n", indent, "", entry->d_name);
-                goto __step;
-            }
-            else {
-                printf("%*s- %s\n", indent, "", entry->d_name);
-            }
+    while ((entry = readdir(dir)) != NULL) {
+        if (entry->d_type == DT_DIR) {
+            char path[PATH_MAX];
+            if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+                continue;
+            snprintf(path, PATH_MAX, "%s/%s", __dirpath_cur.c_str(), entry->d_name);
+            _s_out << __alib_strfmt_file("%*s[%s]\n", indent, "", entry->d_name);
+            goto __step;
         }
-        closedir(dir);
-        return _s_out.str();
+        else {
+            printf("%*s- %s\n", indent, "", entry->d_name);
+        }
+    }
+    closedir(dir);
+    return _s_out.str();
 }
 
 
@@ -585,7 +598,7 @@ _ALIB_FQUAL char* alib_getDigitsOfNumber(int num, bool ascii = true) {
     {
         // What even is math?
         const int least_significant_digit = num % 10;
-        digits[i] = (least_significant_digit + ( (ascii) ? 48 : 0));
+        digits[i] = (least_significant_digit + ((ascii) ? 48 : 0));
         num /= 10;
         i++;
     }
@@ -684,19 +697,19 @@ _ALIB_FQUAL const char* alib_rmocc(const char* src, char c, size_t len = 0) {
     return src_copy.data();
 }
 
-// Set byte at offset of array 
+// get byte at offset of array 
 _ALIB_FQUAL char alib_get_byte(void* data, int offset) {
     return ((char*)data)[offset];
 }
-// Set byte at array[0]
+// get byte at array[0]
 _ALIB_FQUAL char alib_get_byte(void* data) {
     return ((char*)data)[0];
 }
-// Set byte at offset of array 
+// set byte at offset of array 
 _ALIB_FQUAL void alib_set_byte(void* data, char byte, int offset) {
     reinterpret_cast<char*>(data)[offset] = byte;
 }
-// Set byte at array[0]
+// set byte at array[0]
 _ALIB_FQUAL void alib_set_byte(void* data, char byte) {
     reinterpret_cast<char*>(data)[0] = byte;
 }
@@ -832,19 +845,46 @@ _ALIB_FQUAL const char* alib_chrrepl(const char* in, char match, char repl_value
 // Unlike the character replacement version, this will be re-allocating on the stack if needed
 // Array will be trimmed after, make sure to free() it!
 _ALIB_FQUAL char* alib_strrepl(char* in, const char* match, const char* repl, size_t in_len = 0, size_t match_len = 0, size_t repl_len = 0) {
-    return; // NTIMPL
+    return "NTIMPL\0"; // NTIMPL
     alib_reqlen(&in_len, in);
     alib_reqlen(&match_len, match);
     alib_reqlen(&repl_len, repl);
 
     // amount of characters we have to work with
-    // Assumes we have < 12 instances of a thing we need to replace.
-    // If that's so, we will create a new one and copy it to that.
-    size_t amtww = in_len * 8 ;
-    char* tmp = alib_malloca(char, amtww);
-    for (int i = 0; i < in_len; i++) {
-        
+    // Assumes we can fit the replacements in in_len * 8.. 
+    // which should be the case unless you're doing something weird.
+    // If that's so, we will create a new one and copy it to the new one.
+    // Array to store offsets of instances of the matches
+    std::vector<size_t> __elems;
+    size_t in_off = 0;
+    size_t result_len = 0;
+    size_t _instance_last_length = 0;
+    for (int i = 0; i < in_len; i++, in_off++) {
+        // Find instances of string matches
+        if (strncmp(in + i, match, match_len) == 0) {
+            __elems.push_back(in_off);
+        };
     }
+    in -= in_off;
+
+
+    size_t amtww = in_len + (repl_len * __elems.size()) + 1;
+    size_t elemof = 0;
+    char* tmp = alib_malloca(char, amtww);
+
+    for (int i = 0; i < __elems.size(); i++) {
+
+    }
+
+
+
+    char* result = alib_malloca(char, result_len + 1);
+    strncpy(result, tmp, result_len);
+    result[result_len] = '\0';
+
+    free(in);
+    free(tmp);
+    in = result;
     return in;
 }
 // Copies the sign-ed ness of A into B
@@ -853,9 +893,9 @@ _ALIB_FQUAL void alib_copy_signed(signed int a, signed int* b) {
 }
 template <typename T>
 _ALIB_FQUAL void alib_clampptr(T* out, T lower, T upper) {
-    *out = 
-        (* out <= lower) ? lower : // out <= lower : return lower
-        (*out <= upper)  ? *out :  // out <= upper : return out
+    *out =
+        (*out <= lower) ? lower : // out <= lower : return lower
+        (*out <= upper) ? *out :  // out <= upper : return out
         upper;                     // out >  upper : return upper
 }
 template <typename T>
@@ -1048,9 +1088,6 @@ _ALIB_FQUAL void alib_remove_if(std::vector<V_T> _vec, std::function<bool(V_T)> 
 #define alib_sleep_millis(millis) std::this_thread::sleep_for(std::chrono::milliseconds(millis));
 #define alib_sleep_second(second) std::this_thread::sleep_for(std::chrono::microseconds(second));
 
-std::string ___nn_alib_error_charp_str;
-#define alib_get_error() ___nn_alib_error_charp_str.c_str()
-#define alib_set_error(...) ___nn_alib_error_charp_str = alib_strfmt(__VA_ARGS__);
 
 #endif // __lib_aveth_utils_hpp
 
