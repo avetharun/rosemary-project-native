@@ -37,7 +37,15 @@ static char                 g_LogTag[] = "ImGuiExample";
 
 // Forward declarations of helper functions
 static int AndroidGetUnicodeChar(int keyCode, int metaState);
+static int AndroidKeyboardShown(bool return_height = true);
 static void AndroidToggleKeyboard();
+static void AndroidHideKeyboard();
+static void AndroidShowKeyboard();
+static int AndroidKeyboardHeight();
+static int AndroidNavigationBarHeight();
+static int AndroidStatusBarHeight();
+static int AndroidNavigationBarShown(int* out = nullptr);
+static int AndroidStatusBarShown(int* out = nullptr);
 static void HideNavBar();
 const char* root_asset_folder = "/storage/emulated/0/avetharun/htg/";
 AAssetManager* AndroidGetAssetManager() {
@@ -259,7 +267,7 @@ struct DebugConsole {
     }
 
 };
-struct Settings_Assets : rsm::GenericHook {
+struct RSMI : rsm::GenericHook {
     static inline ani::SharedPreferences getSharedPreferences(const char* name = "alib:settings") {
         JNIEnv* jni;
         g_App->activity->vm->AttachCurrentThread(&jni, NULL);
@@ -268,15 +276,13 @@ struct Settings_Assets : rsm::GenericHook {
     void Start() {
         cwError::onError = DebugConsole::cwErrorHandler;
         // get any settings variables
-        Settings_Assets::getSharedPreferences().getBoolean("use_usb", &GlobalState::UseSerialUSB, true);
-        Settings_Assets::getSharedPreferences().getBoolean("use_websock", &GlobalState::UseSerialWebsocket, false);
-        Settings_Assets::getSharedPreferences().getInt("websock_port", &GlobalState::SerialWebsocketPort, 8042);
+        RSMI::getSharedPreferences().getBoolean("use_usb", &GlobalState::UseSerialUSB, true);
+        RSMI::getSharedPreferences().getBoolean("use_websock", &GlobalState::UseSerialWebsocket, false);
+        RSMI::getSharedPreferences().getInt("websock_port", &GlobalState::SerialWebsocketPort, 8042);
         cwError::serrof("%sUnpacked shared prefs", ImRGB(0, 255, 0).tostring());
         cwError::serrof("test/test.txt returned %s", ReadAPKFileBytes("test/test.txt").c_str());
     }
     void Render() {
-        GlobalState::screen_size = ImGui::GetIO().DisplaySize;
-        GlobalState::ui_begin = { GlobalState::screen_size.x * 0.0001f,GlobalState::screen_size.y * 0.05f };
     }
     void PreSwap() {
         ImGuiContext* g = ImGui::GetCurrentContext();
@@ -285,17 +291,17 @@ struct Settings_Assets : rsm::GenericHook {
         g->DrawListSharedData.FontSize = font_sz * 0.5f;
         ImGui::TextForeground(alib_strfmt("fps:%.2f", ImGui::GetIO().Framerate), { 0,32 });
         g->FontSize = font_sz;
+        GlobalState::screen_size = ImGui::GetIO().DisplaySize;
+        GlobalState::ui_begin = { ImGui::GetStyle().ItemSpacing.x * 0.01f,(float)AndroidStatusBarHeight() };
     }
 };
-RSM_HOOK_ENABLE(Settings_Assets);
+RSM_HOOK_ENABLE(RSMI);
 struct ui_impl_debug : rsm::GenericHook {
-    bool open;
     void Render() {
         ImGui::BeginFullscreen();
         ImGui::SetCursorPos(GlobalState::ui_begin);
         if (ImGui::AndroidArrowButton("go_back")) {
-            GlobalState::ShowDebugWindow = false;
-            GlobalState::ShowMainWindow = true;
+            this->pop();
         }
         ImGui::SameLine();
         float fsz_last = ImGui::GetCurrentWindow()->FontWindowScale;
@@ -324,8 +330,7 @@ struct ui_impl_licenses : rsm::GenericHook {
         ImGui::BeginFullscreen();
         ImGui::SetCursorPos(GlobalState::ui_begin);
         if (ImGui::AndroidArrowButton("go_back")) {
-            GlobalState::ShowLicenseWindow = false;
-            GlobalState::ShowSettingsWindow = true;
+            this->pop();
         }
         ImGui::BeginDragScrollableChild("##license_window_pane", { 0,0 }, true);
         float fsz_last = ImGui::GetCurrentWindow()->FontWindowScale;
@@ -337,56 +342,6 @@ struct ui_impl_licenses : rsm::GenericHook {
     }
 };
 RSM_HOOK_ENABLE(ui_impl_licenses);
-struct ui_impl_main : rsm::GenericHook {
-    float __percent;
-    void Start() {
-    }
-    void WindowAvailable() {
-    }
-    void Render() {
-        __percent += ImGui::GetIO().DeltaTime * 8.0f;
-        ImGui::BeginFullscreen();
-        ImGui::SetCursorPos(GlobalState::ui_begin);
-        ImGui::PushFont(rsm::Fonts::symbols);
-        float fsz_last = ImGui::GetCurrentWindow()->FontWindowScale;
-        ImGui::SetWindowFontScale(1.0f);
-        ImVec2 tsz = ImGui::CalcTextSize("9$");
-        ImVec2 spos = { GlobalState::screen_size.x - (tsz.x + (ImGui::GetStyle().ItemSpacing.x * 2)) ,GlobalState::ui_begin.y };
-        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0,0 });
-        ImGui::SetCursorPos(spos);
-
-        ImGui::PushStyleColor(ImGuiCol_Button, { 0,0,0,0 });
-        if (ImGui::Button("$##settings_btn")) {
-            GlobalState::ShowSettingsWindow = true;
-            GlobalState::ShowMainWindow = false;
-        }
-        ImGui::SameLine();
-        if (ImGui::Button("9##debug_btn")) {
-            cwError::serrof("%sDebug window opened.", ImRGB(255, 255, 0, 0).tostring());
-            GlobalState::ShowDebugWindow = true;
-            GlobalState::ShowMainWindow = false;
-        }
-        ImGui::PopStyleColor();
-        ImVec2 _pos = ImGui::GetCursorPos();
-        ImGui::RectFilled({ 0,0 }, { GlobalState::screen_size.x, _pos.y }, ImGui::GetColorU32(ImGuiCol_Button));
-        ImGui::PopStyleVar();
-        ImGui::PopFont();
-        ImGui::SetWindowFontScale(fsz_last);
-
-        // End topnav
-
-
-        ImGui::BeginDragScrollableChild("__main_scrollable", { 0,0 }, true);
-        ImGui::LoadingBar(__percent);
-        if (__percent > 100) { __percent = 0; }
-        ImGui::EndDragScrollableChild();
-        ImGui::EndFullscreen();
-    }
-    void PreSwap() {
-    }
-};
-RSM_HOOK_ENABLE(ui_impl_main);
-
 struct ui_impl_settings : rsm::GenericHook {
     char __itoa_websocket_num[16];
     int e;
@@ -397,15 +352,14 @@ struct ui_impl_settings : rsm::GenericHook {
         ImGui::SetCursorPos(GlobalState::ui_begin);
         if (ImGui::AndroidArrowButton("go_back")) {
             // Commit any values from the settings dialog into shared prefs
-            Settings_Assets::getSharedPreferences()
+            RSMI::getSharedPreferences()
                 .edit()
                 .putBoolean("use_usb", GlobalState::UseSerialUSB)
                 .putBoolean("use_websock", GlobalState::UseSerialWebsocket)
                 .putInt("websock_port", GlobalState::SerialWebsocketPort)
                 .commit();
             ;
-            GlobalState::ShowSettingsWindow = false;
-            GlobalState::ShowMainWindow = true;
+            this->pop();
         }
         ImGui::BeginDragScrollableChild("##settings_window_pane", { 0,0 }, true);
         ImGui::SetCursorPos({ 32, 16 });
@@ -429,8 +383,7 @@ struct ui_impl_settings : rsm::GenericHook {
         }
         ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 512);
         if (ImGui::TextButton("license_btn", "View licenses")) {
-            GlobalState::ShowSettingsWindow = false;
-            GlobalState::ShowLicenseWindow = true;
+            this->push(ui_impl_licenses_runner);
         }
         ImGui::UnderlineLast();
 
@@ -441,6 +394,56 @@ struct ui_impl_settings : rsm::GenericHook {
 
 };
 RSM_HOOK_ENABLE(ui_impl_settings);
+struct ui_impl_main : rsm::GenericHook {
+    float __percent;
+    void Start() {
+        if (rsm::GenericHook::__hook_stack.size() == 0) {
+            this->push(this);
+        }
+    }
+    void WindowAvailable() {
+    }
+    void Render() {
+        __percent += ImGui::GetIO().DeltaTime * 8.0f;
+        ImGui::BeginFullscreen();
+        ImGui::SetCursorPos(GlobalState::ui_begin);
+        ImGui::PushFont(rsm::Fonts::symbols);
+        float fsz_last = ImGui::GetCurrentWindow()->FontWindowScale;
+        ImGui::SetWindowFontScale(1.0f);
+        ImVec2 tsz = ImGui::CalcTextSize("9$");
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0,0 });
+        ImGui::SetCursorPos(GlobalState::ui_begin);
+
+        ImGui::PushStyleColor(ImGuiCol_Button, { 0,0,0,0 });
+        if (ImGui::Button("$##settings_btn")) {
+            this->push(ui_impl_settings_runner);
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("9##debug_btn")) {
+            cwError::serrof("%sDebug window opened.", ImRGB(255, 255, 0, 0).tostring());
+            this->push(ui_impl_debug_runner);
+        }
+        ImGui::PopStyleColor();
+        ImVec2 _pos = ImGui::GetCursorPos();
+        ImGui::RectFilled({ 0,0 }, { GlobalState::screen_size.x, _pos.y }, ImGui::GetColorU32(ImGuiCol_Button));
+        ImGui::PopStyleVar();
+        ImGui::PopFont();
+        ImGui::SetWindowFontScale(fsz_last);
+
+        // End topnav
+
+
+        ImGui::BeginDragScrollableChild("__main_scrollable", { 0,0 }, true);
+
+        ImGui::Text("Status bar shown? %d Height? %d", AndroidStatusBarShown(), AndroidStatusBarHeight());
+        ImGui::EndDragScrollableChild();
+        ImGui::EndFullscreen();
+    }
+    void PreSwap() {
+    }
+};
+RSM_HOOK_ENABLE(ui_impl_main);
+
 void tick()
 {
     if (g_EglDisplay == EGL_NO_DISPLAY)
@@ -452,14 +455,6 @@ void tick()
         rsm::HookManager::RunPostStart();
 
     }
-    if (GlobalState::ShowMainWindow) { ui_impl_main_runner->enabled = true; }
-    else { ui_impl_main_runner->enabled = false; }
-    if (GlobalState::ShowSettingsWindow) { ui_impl_settings_runner->enabled = true; }
-    else { ui_impl_settings_runner->enabled = false; }
-    if (GlobalState::ShowLicenseWindow) { ui_impl_licenses_runner->enabled = true; }
-    else { ui_impl_licenses_runner->enabled = false; }
-    if (GlobalState::ShowDebugWindow) { ui_impl_debug_runner->enabled = true; }
-    else { ui_impl_debug_runner->enabled = false; }
     ImGuiIO& io = ImGui::GetIO();
     static ImVec4 clear_color = ImVec4(0.1f, 0.1f, 0.1f, 1.00f);
     glViewport(0, 0, (int)io.DisplaySize.x, (int)io.DisplaySize.y);
@@ -470,7 +465,10 @@ void tick()
     // Open on-screen (soft) input if requested by Dear ImGui
     static bool WantTextInputLast = false;
     if ((io.WantTextInput && !WantTextInputLast) || (!io.WantTextInput && WantTextInputLast))
-        AndroidToggleKeyboard();
+        AndroidShowKeyboard();
+    if (!io.WantTextInput && !WantTextInputLast) {
+        AndroidHideKeyboard();
+    }
     WantTextInputLast = io.WantTextInput;
     // Start the Dear ImGui frame
     ImGui_ImplOpenGL3_NewFrame();
@@ -484,29 +482,19 @@ void tick()
     rsm::HookManager::RunPreRender();
     rsm::HookManager::RunRender();
     rsm::HookManager::RunPreSwap();
+    RSMI_runner->PreSwap();
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
     eglSwapBuffers(g_EglDisplay, g_EglSurface);
     rsm::HookManager::RunPostRender();
     ImGui::ElementStubImpl::ResetOffsets();
-    if (!Settings_Assets_runner->enabled) {
-        Settings_Assets_runner->enabled = true;
-    }
 }
 
 void shutdown()
 {
     if (!g_Initialized)
         return;
-
-
-    Settings_Assets::getSharedPreferences()
-        .edit()
-        .putBoolean("use_usb", GlobalState::UseSerialUSB)
-        .putBoolean("use_websock", GlobalState::UseSerialWebsocket)
-        .putInt("websock_port", GlobalState::SerialWebsocketPort)
-        .commit();
-    ;
+    rsm::HookManager::RunWindowUnavailable();
 
     // Cleanup
     ImGui_ImplOpenGL3_Shutdown();
@@ -545,7 +533,6 @@ static void handleAppCmd(struct android_app* app, int32_t appCmd)
         break;
     case APP_CMD_TERM_WINDOW:
         shutdown();
-        rsm::HookManager::RunWindowUnavailable();
         break;
     case APP_CMD_GAINED_FOCUS:
         rsm::HookManager::RunStart();
@@ -605,8 +592,7 @@ void android_main(struct android_app* app)
 static ImRect AndroidCutoutRect() {
     ImRect out;
     JNIEnv* jni;
-    ANIEnv::EnsureEnvV(g_App->activity->vm, jni);
-    //g_App->activity->vm->AttachCurrentThread(&jni, NULL);
+    g_App->activity->vm->AttachCurrentThread(&jni, NULL);
 
     jclass cls = jni->GetObjectClass(g_App->activity->clazz);
     jmethodID getResourcesMID = jni->GetMethodID(cls, "getRootWindowInsets", "()Landroid/view/WindowInsets;");
@@ -616,8 +602,7 @@ static ImRect AndroidCutoutRect() {
 }
 static int AndroidGenericDimenShown(const char* bar_name, int* height) {
     JNIEnv* jni;
-    ANIEnv::EnsureEnvV(g_App->activity->vm, jni);
-    //g_App->activity->vm->AttachCurrentThread(&jni, NULL);
+    g_App->activity->vm->AttachCurrentThread(&jni, NULL);
     bool state = false;
     jclass cls = jni->GetObjectClass(g_App->activity->clazz);
     jmethodID getResourcesMID = jni->GetMethodID(cls, "getResources", "()Landroid/content/res/Resources;");
@@ -662,8 +647,7 @@ static int AndroidNavigationBarHeight() {
 }
 static int AndroidKeyboardShown(bool return_height) {
     JNIEnv* jni;
-    ANIEnv::EnsureEnvV(g_App->activity->vm, jni);
-    //g_App->activity->vm->AttachCurrentThread(&jni, NULL);
+    g_App->activity->vm->AttachCurrentThread(&jni, NULL);
     bool state = false;
     jclass cls = jni->GetObjectClass(g_App->activity->clazz);
     jmethodID methodID = jni->GetMethodID(cls, "getSystemService", "(Ljava/lang/String;)Ljava/lang/Object;");
@@ -691,8 +675,7 @@ static int AndroidKeyboardHeight() {
 static void AndroidToggleKeyboard()
 {
     JNIEnv* jni;
-    ANIEnv::EnsureEnvV(g_App->activity->vm, jni);
-    //g_App->activity->vm->AttachCurrentThread(&jni, NULL);
+    g_App->activity->vm->AttachCurrentThread(&jni, NULL);
 
     jclass cls = jni->GetObjectClass(g_App->activity->clazz);
     jmethodID methodID = jni->GetMethodID(cls, "getSystemService", "(Ljava/lang/String;)Ljava/lang/Object;");
@@ -712,8 +695,7 @@ static int AndroidGetUnicodeChar(int keyCode, int metaState)
 
     int eventType = AKEY_EVENT_ACTION_DOWN;
     JNIEnv* jni;
-    ANIEnv::EnsureEnvV(g_App->activity->vm, jni);
-    //g_App->activity->vm->AttachCurrentThread(&jni, NULL);
+    g_App->activity->vm->AttachCurrentThread(&jni, NULL);
 
     jclass class_key_event = jni->FindClass("android/view/KeyEvent");
 
