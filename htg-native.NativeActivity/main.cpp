@@ -593,11 +593,101 @@ void android_main(struct android_app* app)
         tick();
     }
 }
+/// <summary>
+/// 
+/// </summary>
+/// <returns>the rect taken up by the camera cutout</returns>
+static ImRect AndroidCutoutRect() {
+    ImRect out;
+    JNIEnv* jni;
+    ANIEnv::EnsureEnvV(g_App->activity->vm, jni);
+    //g_App->activity->vm->AttachCurrentThread(&jni, NULL);
 
+    jclass cls = jni->GetObjectClass(g_App->activity->clazz);
+    jmethodID getResourcesMID = jni->GetMethodID(cls, "getRootWindowInsets", "()Landroid/view/WindowInsets;");
+
+    g_App->activity->vm->DetachCurrentThread();
+    return out;
+}
+static int AndroidGenericDimenShown(const char* bar_name, int* height) {
+    JNIEnv* jni;
+    ANIEnv::EnsureEnvV(g_App->activity->vm, jni);
+    //g_App->activity->vm->AttachCurrentThread(&jni, NULL);
+    bool state = false;
+    jclass cls = jni->GetObjectClass(g_App->activity->clazz);
+    jmethodID getResourcesMID = jni->GetMethodID(cls, "getResources", "()Landroid/content/res/Resources;");
+    jobject resources = jni->CallObjectMethod(g_App->activity->clazz, getResourcesMID);
+    jclass resources_cls = jni->GetObjectClass(resources);
+    jmethodID getIDMID = jni->GetMethodID(resources_cls, "getIdentifier", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)I");
+    jmethodID getDimensionPixelSizeMID = jni->GetMethodID(resources_cls, "getDimensionPixelSize", "(I)I");
+    jstring id0 = jni->NewStringUTF(bar_name);
+    jstring id1 = jni->NewStringUTF("dimen");
+    jstring id2 = jni->NewStringUTF("android");
+    /*get the resource id for the status bar */
+    jint resid = jni->CallIntMethod(resources, getIDMID, id0, id1, id2);
+    int pxheight = 0;
+    if (resid > 0) {
+        pxheight = jni->CallIntMethod(resources, getDimensionPixelSizeMID, resid);
+        /*get status bar height*/
+    }
+    if (height != NULL) {
+        *height = pxheight;
+    }
+    jni->DeleteLocalRef(id0);
+    jni->DeleteLocalRef(id1);
+    jni->DeleteLocalRef(id2);
+    g_App->activity->vm->DetachCurrentThread();
+    return pxheight > 0;
+}
+static int AndroidStatusBarShown(int* height) {
+    return AndroidGenericDimenShown("status_bar_height", height);
+}
+static int AndroidStatusBarHeight() {
+    int out;
+    AndroidStatusBarShown(&out);
+    return out;
+}
+static int AndroidNavigationBarShown(int* height) {
+    return AndroidGenericDimenShown("navigation_bar_height", height);
+}
+static int AndroidNavigationBarHeight() {
+    int out;
+    AndroidNavigationBarShown(&out);
+    return out;
+}
+static int AndroidKeyboardShown(bool return_height) {
+    JNIEnv* jni;
+    ANIEnv::EnsureEnvV(g_App->activity->vm, jni);
+    //g_App->activity->vm->AttachCurrentThread(&jni, NULL);
+    bool state = false;
+    jclass cls = jni->GetObjectClass(g_App->activity->clazz);
+    jmethodID methodID = jni->GetMethodID(cls, "getSystemService", "(Ljava/lang/String;)Ljava/lang/Object;");
+    jstring service_name = jni->NewStringUTF("input_method");
+    jobject input_service = jni->CallObjectMethod(g_App->activity->clazz, methodID, service_name);
+    jclass input_service_cls = jni->GetObjectClass(input_service);
+    methodID = jni->GetMethodID(input_service_cls, "getInputMethodWindowVisibleHeight", "()I");
+    GlobalState::KeyboardHeight = jni->CallIntMethod(input_service, methodID);
+    if (GlobalState::KeyboardHeight > 0) {
+        GlobalState::keyboard_visible = true;
+        state = true;
+    }
+    else {
+        GlobalState::keyboard_visible = false;
+    }
+    g_App->activity->vm->DetachCurrentThread();
+    if (!return_height) { 
+        return state; 
+    }
+    else { return GlobalState::KeyboardHeight; }
+}
+static int AndroidKeyboardHeight() {
+    return AndroidKeyboardShown(/*return_height = */true);
+}
 static void AndroidToggleKeyboard()
 {
     JNIEnv* jni;
-    g_App->activity->vm->AttachCurrentThread(&jni, NULL);
+    ANIEnv::EnsureEnvV(g_App->activity->vm, jni);
+    //g_App->activity->vm->AttachCurrentThread(&jni, NULL);
 
     jclass cls = jni->GetObjectClass(g_App->activity->clazz);
     jmethodID methodID = jni->GetMethodID(cls, "getSystemService", "(Ljava/lang/String;)Ljava/lang/Object;");
@@ -609,7 +699,6 @@ static void AndroidToggleKeyboard()
     jni->CallVoidMethod(input_service, methodID, 0, 0);
 
     jni->DeleteLocalRef(service_name);
-
     g_App->activity->vm->DetachCurrentThread();
 }
 static int AndroidGetUnicodeChar(int keyCode, int metaState)
@@ -618,7 +707,8 @@ static int AndroidGetUnicodeChar(int keyCode, int metaState)
 
     int eventType = AKEY_EVENT_ACTION_DOWN;
     JNIEnv* jni;
-    g_App->activity->vm->AttachCurrentThread(&jni, NULL);
+    ANIEnv::EnsureEnvV(g_App->activity->vm, jni);
+    //g_App->activity->vm->AttachCurrentThread(&jni, NULL);
 
     jclass class_key_event = jni->FindClass("android/view/KeyEvent");
 
@@ -632,34 +722,13 @@ static int AndroidGetUnicodeChar(int keyCode, int metaState)
 
     return unicodeKey;
 }
-static void HideNavBar()
-{
-    JNIEnv* env{};
-    g_App->activity->vm->AttachCurrentThread(&env, NULL);
-
-    jclass activityClass = env->FindClass("android/app/NativeActivity");
-    jmethodID getWindow = env->GetMethodID(activityClass, "getWindow", "()Landroid/view/Window;");
-
-    jclass windowClass = env->FindClass("android/view/Window");
-    jmethodID getDecorView = env->GetMethodID(windowClass, "getDecorView", "()Landroid/view/View;");
-
-    jclass viewClass = env->FindClass("android/view/View");
-    jmethodID setSystemUiVisibility = env->GetMethodID(viewClass, "setSystemUiVisibility", "(I)V");
-
-    jobject window = env->CallObjectMethod(g_App->activity->clazz, getWindow);
-
-    jobject decorView = env->CallObjectMethod(window, getDecorView);
-
-    jfieldID flagFullscreenID = env->GetStaticFieldID(viewClass, "SYSTEM_UI_FLAG_FULLSCREEN", "I");
-    jfieldID flagHideNavigationID = env->GetStaticFieldID(viewClass, "SYSTEM_UI_FLAG_HIDE_NAVIGATION", "I");
-    jfieldID flagImmersiveStickyID = env->GetStaticFieldID(viewClass, "SYSTEM_UI_FLAG_IMMERSIVE_STICKY", "I");
-
-    const int flagFullscreen = env->GetStaticIntField(viewClass, flagFullscreenID);
-    const int flagHideNavigation = env->GetStaticIntField(viewClass, flagHideNavigationID);
-    const int flagImmersiveSticky = env->GetStaticIntField(viewClass, flagImmersiveStickyID);
-    const int flag = flagFullscreen | flagHideNavigation | flagImmersiveSticky;
-
-    env->CallVoidMethod(decorView, setSystemUiVisibility, flag);
-
-    g_App->activity->vm->DetachCurrentThread();
+static void AndroidShowKeyboard() {
+    if (AndroidKeyboardShown()) { return; }
+    // Keyboard hidden, enable it.
+    AndroidToggleKeyboard();
+}
+static void AndroidHideKeyboard() {
+    if (!AndroidKeyboardShown()) { return; }
+    // Keyboard shown, disable it
+    AndroidToggleKeyboard();
 }
