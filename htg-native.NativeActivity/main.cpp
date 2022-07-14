@@ -4,8 +4,8 @@
 #include "imgui/imgui.h"
 #include "imgui/imgui_texture.h"
 #include "imgui/imgui_uielement.h"
-#include "imgui/imgui_markdown.h"
 #include "imgui/imgui_format.h"
+#include "imgui/imgui_markdown.h"
 #include "imgui/imgui_impl_android.h"
 #include "imgui/imgui_impl_opengl3.h"
 
@@ -87,7 +87,7 @@ static const char* ReadAssetBytes(const char* filename, size_t* num_bytes_out = 
     else {
         stbi__g_failure_reason = alib_strfmt("Asset %s not found.", filename);
         //alib_LOGE("Asset %s not found.", filename);
-        return 0; 
+        return 0;
     }
     if (num_bytes_out) { *num_bytes_out = num_bytes; }
     return out_data;
@@ -120,18 +120,18 @@ static std::string ReadAPKFileBytes(const char* file, size_t* len = 0) {
         rewind(apk_f);
         fread(out, sizeof(char), size, apk_f);
         out[size + 1] = '\0';
-        std::string __out(out,size);
+        std::string __out(out, size);
         delete[] out;
         if (len) { *len = size; }
         return __out;
     }
-    return alib_strfmt("Could not read or open file: %s",  file);
+    return alib_strfmt("Could not read or open file: %s", file);
 }
 bool ImGui::LoadTextureFromAPK(const char* filename, GLuint* out_texture, int* out_width, int* out_height) {
     size_t bytes_len = 0;
     unsigned char* bytes = (unsigned char*)ReadAPKFileBytes(filename, &bytes_len).c_str();
     if (!bytes) {
-        return 0; 
+        return 0;
     }
     return LoadTextureFromMemory(bytes, bytes_len, out_texture, out_width, out_height);
 }
@@ -179,7 +179,7 @@ void init(struct android_app* app)
     }
 
     // Setup Dear ImGui context
-    IMGUI_CHECKVERSION(); 
+    IMGUI_CHECKVERSION();
     ImPlot::CreateContext();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
@@ -199,7 +199,7 @@ void init(struct android_app* app)
     ImFontConfig font_cfg;
     font_cfg.SizePixels = 64.0f;
     rsm::Fonts::default_font = io.Fonts->AddFontDefault(&font_cfg);
-    
+
     void* arial_font_data = (void*)ReadAssetBytes("arial.ttf");
     void* proggy_font_data = (void*)ReadAssetBytes("proggyclean.ttf");
     void* symbols_font_data = (void*)ReadAssetBytes("symbols.ttf");
@@ -226,7 +226,7 @@ void init(struct android_app* app)
     rsm::HookManager::RunStart();
 }
 float _time = 0.0f;
-namespace Icon{
+namespace Icon {
     rsm::ImageAsset console_64{};
     rsm::ImageAsset settings{};
     rsm::ImageAsset add_character{};
@@ -301,8 +301,8 @@ struct ui_impl_debug : rsm::GenericHook {
         float fsz_last = ImGui::GetCurrentWindow()->FontWindowScale;
         ImGui::SetWindowFontScale(0.85f);
         ImGui::Text("Debug Window");
-        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, {0,0});
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {0,0});
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, { 0,0 });
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, { 0,0 });
         ImGui::BeginDragScrollableChild("##debug_console_window", { 0,0 }, true);
         ImGui::SetWindowFontScale(0.5f);
         ImGui::TextMulticolored(DebugConsole::debugWindowConsoleText.c_str());
@@ -337,7 +337,7 @@ struct ui_impl_licenses : rsm::GenericHook {
     }
 };
 RSM_HOOK_ENABLE(ui_impl_licenses);
-struct ui_impl_main: rsm::GenericHook {
+struct ui_impl_main : rsm::GenericHook {
     float __percent;
     void Start() {
     }
@@ -351,7 +351,7 @@ struct ui_impl_main: rsm::GenericHook {
         float fsz_last = ImGui::GetCurrentWindow()->FontWindowScale;
         ImGui::SetWindowFontScale(1.0f);
         ImVec2 tsz = ImGui::CalcTextSize("9$");
-        ImVec2 spos = {GlobalState::screen_size.x - ( tsz.x + (ImGui::GetStyle().ItemSpacing.x * 2)) ,GlobalState::ui_begin.y};
+        ImVec2 spos = { GlobalState::screen_size.x - (tsz.x + (ImGui::GetStyle().ItemSpacing.x * 2)) ,GlobalState::ui_begin.y };
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { 0,0 });
         ImGui::SetCursorPos(spos);
 
@@ -399,16 +399,16 @@ struct ui_impl_settings : rsm::GenericHook {
             // Commit any values from the settings dialog into shared prefs
             Settings_Assets::getSharedPreferences()
                 .edit()
-                    .putBoolean("use_usb", GlobalState::UseSerialUSB)
-                    .putBoolean("use_websock", GlobalState::UseSerialWebsocket)
-                    .putInt("websock_port", GlobalState::SerialWebsocketPort)
+                .putBoolean("use_usb", GlobalState::UseSerialUSB)
+                .putBoolean("use_websock", GlobalState::UseSerialWebsocket)
+                .putInt("websock_port", GlobalState::SerialWebsocketPort)
                 .commit();
-                ;
+            ;
             GlobalState::ShowSettingsWindow = false;
             GlobalState::ShowMainWindow = true;
         }
-        ImGui::BeginDragScrollableChild("##settings_window_pane", {0,0}, true);
-        ImGui::SetCursorPos({32, 16 });
+        ImGui::BeginDragScrollableChild("##settings_window_pane", { 0,0 }, true);
+        ImGui::SetCursorPos({ 32, 16 });
         // Begin networking settings
         if (ImGui::CollapsingHeader("Advanced settings")) {
             ImGui::ThumbSwitch("##settings_use_serial_USB", &GlobalState::UseSerialUSB, "Use USB");
@@ -452,10 +452,14 @@ void tick()
         rsm::HookManager::RunPostStart();
 
     }
-    if (GlobalState::ShowMainWindow) { ui_impl_main_runner->enabled = true; } else { ui_impl_main_runner->enabled = false; }
-    if (GlobalState::ShowSettingsWindow) { ui_impl_settings_runner->enabled = true; } else { ui_impl_settings_runner->enabled = false; }
-    if (GlobalState::ShowLicenseWindow) { ui_impl_licenses_runner->enabled = true; } else { ui_impl_licenses_runner->enabled = false; }
-    if (GlobalState::ShowDebugWindow) { ui_impl_debug_runner->enabled = true; } else { ui_impl_debug_runner->enabled = false; }
+    if (GlobalState::ShowMainWindow) { ui_impl_main_runner->enabled = true; }
+    else { ui_impl_main_runner->enabled = false; }
+    if (GlobalState::ShowSettingsWindow) { ui_impl_settings_runner->enabled = true; }
+    else { ui_impl_settings_runner->enabled = false; }
+    if (GlobalState::ShowLicenseWindow) { ui_impl_licenses_runner->enabled = true; }
+    else { ui_impl_licenses_runner->enabled = false; }
+    if (GlobalState::ShowDebugWindow) { ui_impl_debug_runner->enabled = true; }
+    else { ui_impl_debug_runner->enabled = false; }
     ImGuiIO& io = ImGui::GetIO();
     static ImVec4 clear_color = ImVec4(0.1f, 0.1f, 0.1f, 1.00f);
     glViewport(0, 0, (int)io.DisplaySize.x, (int)io.DisplaySize.y);
@@ -502,7 +506,7 @@ void shutdown()
         .putBoolean("use_websock", GlobalState::UseSerialWebsocket)
         .putInt("websock_port", GlobalState::SerialWebsocketPort)
         .commit();
-        ;
+    ;
 
     // Cleanup
     ImGui_ImplOpenGL3_Shutdown();
@@ -676,8 +680,8 @@ static int AndroidKeyboardShown(bool return_height) {
         GlobalState::keyboard_visible = false;
     }
     g_App->activity->vm->DetachCurrentThread();
-    if (!return_height) { 
-        return state; 
+    if (!return_height) {
+        return state;
     }
     else { return GlobalState::KeyboardHeight; }
 }
@@ -718,7 +722,7 @@ static int AndroidGetUnicodeChar(int keyCode, int metaState)
     jobject eventObj = jni->NewObject(class_key_event, eventConstructor, eventType, keyCode);
 
     int unicodeKey = jni->CallIntMethod(eventObj, method_get_unicode_char, metaState);
-    
+
     g_App->activity->vm->DetachCurrentThread();
 
     return unicodeKey;
