@@ -4,6 +4,7 @@
 #include "imgui/imgui.h"
 #include "imgui/imgui_texture.h"
 #include "imgui/imgui_uielement.h"
+#include "imgui/imgui_markdown.h"
 #include "imgui/imgui_format.h"
 #include "imgui/imgui_impl_android.h"
 #include "imgui/imgui_impl_opengl3.h"
@@ -431,7 +432,7 @@ struct ui_impl_settings : rsm::GenericHook {
             GlobalState::ShowSettingsWindow = false;
             GlobalState::ShowLicenseWindow = true;
         }
-        ImGui::UnderlineText();
+        ImGui::UnderlineLast();
 
 
         ImGui::EndDragScrollableChild();
