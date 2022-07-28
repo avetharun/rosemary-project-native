@@ -2,13 +2,22 @@
 #define __rosemary_project_util_hooks_h_
 
 #include <vector>
+#include <stack>
 #include "utils.hpp"
 namespace rsm {
 	/// A hook to be run at an event
 	struct GenericHook {
+		bool ShowStatusBar = true;
 		bool enabled = true;
-		static inline std::vector<GenericHook*> __hooks_vec{};
-
+		static inline std::vector<GenericHook*> __globally_enabled_hooks{};
+		static inline std::stack<GenericHook*> __hook_stack;
+		static void push(GenericHook* hook) {
+			__hook_stack.push(hook);
+		}
+		static void pop() {
+			if (__hook_stack.size() == 0) { return; }
+			__hook_stack.pop();
+		}
 		// Key pressed on physical or virtual keyboard
 		virtual void KeyPressed(int scancode) {}
 		// Runs whenever a key is held down every frame
@@ -35,115 +44,131 @@ namespace rsm {
 		virtual void Render() { return; }
 		// Code to run before swapping buffers via OpenGL
 		virtual void PreSwap() { return; }
+		// Code to run before rendering ImGui to OpenGL
+		virtual void PreUI() { return; }
 		// Code to run after render cycle
 		virtual void PostRender() { return; }
 
-		// Util: OpenGL window destroyed (lost focus, or went out of screenspace)
-		virtual void WindowUnavailable() { return; }
-		// Util: OpenGL window recreated or able to be drawn to
-		virtual void WindowAvailable() { return; }
+		// Code to run after updating, regardless of if this hook is enabled or not.
+		virtual void Tick() { return; }
+
+		// Util: OpenGL & ImGui initialized, set up fonts/settings
+		virtual void InitPost() { return; }
+		// Util: OpenGL initialized. Do things to set up VBOs, VAOs, etc.
+		virtual void InitGL() {}
 
 
 		static void enable_static(GenericHook* __t) {
-			GenericHook::__hooks_vec.push_back(__t);
+			GenericHook::__globally_enabled_hooks.push_back(__t);
 		}
 		static void disable_static(GenericHook* __t) {
-			alib_remove_any_of(__hooks_vec, __t);
+			alib_remove_any_of(__globally_enabled_hooks, __t);
 		}
 		GenericHook() {
-			if (!alib_contains_any_of(__hooks_vec, this)) {
-				__hooks_vec.push_back(this);
+			if (!alib_contains_any_of(__globally_enabled_hooks, this)) {
+				__globally_enabled_hooks.push_back(this);
 				this->enabled = false;
 			}
 		}
-		virtual void operator ~() { alib_remove_any_of(__hooks_vec, this); }
+		virtual void operator ~() { alib_remove_any_of(__globally_enabled_hooks, this); }
 	};
-	struct HookManager : GenericHook {
-		static void RunWindowAvailable() {
-			for (int i = 0; i < __hooks_vec.size(); i++) {
-				if (__hooks_vec.at(i)->enabled)
-				__hooks_vec.at(i)->WindowAvailable();
+	struct HookManager {
+		// Runs for all hooks
+		static void RunInitPost() {
+			for (int i = 0; i < GenericHook::__globally_enabled_hooks.size(); i++) {
+				GenericHook::__globally_enabled_hooks.at(i)->InitPost();
 			}
 		}
-		static void RunWindowUnavailable() {
-			for (int i = 0; i < __hooks_vec.size(); i++) {
-				if (__hooks_vec.at(i)->enabled)
-				__hooks_vec.at(i)->WindowUnavailable();
+		// Runs for all hooks
+		static void RunInitGL() {
+			for (int i = 0; i < GenericHook::__globally_enabled_hooks.size(); i++) {
+				GenericHook::__globally_enabled_hooks.at(i)->InitGL();
 			}
 		}
+		// Runs for all hooks
 		static void RunStart() {
-			for (int i = 0; i < __hooks_vec.size(); i++) {
-				if (__hooks_vec.at(i)->enabled)
-				__hooks_vec.at(i)->Start();
+			for (int i = 0; i < GenericHook::__globally_enabled_hooks.size(); i++) {
+				GenericHook::__globally_enabled_hooks.at(i)->Start();
 			}
 		}
+		// Runs for only the current pushed() hook
 		static void RunPostStart() {
-			for (int i = 0; i < __hooks_vec.size(); i++) {
-				if (__hooks_vec.at(i)->enabled)
-				__hooks_vec.at(i)->PostStart();
+			if (GenericHook::__hook_stack.size()) {
+				GenericHook::__hook_stack.top()->PostStart();
 			}
 		}
+		// Runs for only the current pushed() hook
 		static void RunUpdate() {
-			for (int i = 0; i < __hooks_vec.size(); i++) {
-				if (__hooks_vec.at(i)->enabled)
-				__hooks_vec.at(i)->Update();
+			if (GenericHook::__hook_stack.size()) {
+				GenericHook::__hook_stack.top()->Update();
 			}
 		}
+		// Runs for all hooks, regardless if enabled or not.
+		static void RunTick() {
+			for (int i = 0; i < GenericHook::__globally_enabled_hooks.size(); i++) {
+				GenericHook::__globally_enabled_hooks.at(i)->Tick();
+			}
+		}
+		// Runs for only the current pushed() hook
 		static void RunPreUpdate() {
-			for (int i = 0; i < __hooks_vec.size(); i++) {
-				if (__hooks_vec.at(i)->enabled)
-				__hooks_vec.at(i)->PreUpdate();
+			if (GenericHook::__hook_stack.size()) {
+				GenericHook::__hook_stack.top()->PreUpdate();
 			}
 		}
+		// Runs for only the current pushed() hook
 		static void RunPostUpdate() {
-			for (int i = 0; i < __hooks_vec.size(); i++) {
-				if (__hooks_vec.at(i)->enabled)
-				__hooks_vec.at(i)->PostUpdate();
+			if (GenericHook::__hook_stack.size()) {
+				GenericHook::__hook_stack.top()->PostUpdate();
 			}
 		}
+		// Runs for only the current pushed() hook
 		static void RunRender() {
-			for (int i = 0; i < __hooks_vec.size(); i++) {
-				if (__hooks_vec.at(i)->enabled)
-				__hooks_vec.at(i)->Render();
+			if (GenericHook::__hook_stack.size()) {
+				GenericHook::__hook_stack.top()->Render();
 			}
 		}
+		// Runs for only the current pushed() hook
 		static void RunPreRender() {
-			for (int i = 0; i < __hooks_vec.size(); i++) {
-				if (__hooks_vec.at(i)->enabled)
-				__hooks_vec.at(i)->PreRender();
+			if (GenericHook::__hook_stack.size()) {
+				GenericHook::__hook_stack.top()->PreRender();
 			}
 		}
+		// Runs for only the current pushed() hook
 		static void RunPostRender() {
-			for (int i = 0; i < __hooks_vec.size(); i++) {
-				if (__hooks_vec.at(i)->enabled)
-				__hooks_vec.at(i)->PostRender();
+			if (GenericHook::__hook_stack.size()) {
+				GenericHook::__hook_stack.top()->PostRender();
 			}
 		}
+		// Runs for only the current pushed() hook
 		static void RunPreSwap() {
-			for (int i = 0; i < __hooks_vec.size(); i++) {
-				if (__hooks_vec.at(i)->enabled)
-				__hooks_vec.at(i)->PreSwap();
+			if (GenericHook::__hook_stack.size()) {
+				GenericHook::__hook_stack.top()->PreSwap();
 			}
 		}
+		// Runs for only the current pushed() hook
+		static void RunPreUI() {
+			if (GenericHook::__hook_stack.size()) {
+				GenericHook::__hook_stack.top()->PreUI();
+			}
+		}
+		// Runs for only the current pushed() hook
 		static void RunKeyPressed(int scancode) {
-			for (int i = 0; i < __hooks_vec.size(); i++) {
-				if (__hooks_vec.at(i)->enabled)
-				__hooks_vec.at(i)->KeyPressed(scancode);
+			if (GenericHook::__hook_stack.size()) {
+				GenericHook::__hook_stack.top()->KeyPressed(scancode);
 			}
 		}
+		// Runs for only the current pushed() hook
 		static void RunKeyReleased(int scancode) {
-			for (int i = 0; i < __hooks_vec.size(); i++) {
-				if (__hooks_vec.at(i)->enabled)
-				__hooks_vec.at(i)->KeyReleased(scancode);
+			if (GenericHook::__hook_stack.size()) {
+				GenericHook::__hook_stack.top()->KeyReleased(scancode);
 			}
 		}
+		// Runs for only the current pushed() hook
 		static void RunKeyHeld(int scancode) {
-			for (int i = 0; i < __hooks_vec.size(); i++) {
-				if (__hooks_vec.at(i)->enabled)
-				__hooks_vec.at(i)->KeyHeld(scancode);
+			if (GenericHook::__hook_stack.size()) {
+				GenericHook::__hook_stack.top()->KeyHeld(scancode);
 			}
 		}
-
 	};
 	struct RenderHook : private GenericHook {
 		virtual void PreRender() {}

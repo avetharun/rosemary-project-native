@@ -47,9 +47,14 @@
       // Original impl: https://github.com/avetharun/avetharun/blob/bf49a022c7021fb3200231722f7975f167e1cf9f/ave_libs.hpp#L308
                        // Also added assert handling
 #include <string>
+#define _ALIB_FQUAL static inline
 std::string ___nn_alib_error_charp_str;
+_ALIB_FQUAL char* alib_strfmt(const char* fmt, ...);
 #define alib_get_error() ___nn_alib_error_charp_str.c_str()
 #define alib_set_error(...) ___nn_alib_error_charp_str = alib_strfmt(__VA_ARGS__);
+
+// Note: ignore any "function definition for typedef_func_ty" or "Y is not defined" errors. They're temporary.
+#define d_typedef_func_ty(return_z, name, ...) typedef return_z (*name)(__VA_ARGS__);
 
 #ifndef itoa
 char* itoa(int num, char* buffer, int base) {
@@ -116,7 +121,6 @@ char* ftoa(float f)
     return buf;
 }
 #endif
-#define _ALIB_FQUAL static inline
 #ifndef NDEBUG
 // Production builds should set NDEBUG=1
 #define NDEBUG false
@@ -406,8 +410,6 @@ _ALIB_FQUAL char* alib_gcwd() {
 #endif // ALIB_NO_CONCAT
 
 
-// Note: ignore any "function definition for typedef_func_ty" or "Y is not defined" errors. They're temporary.
-#define d_typedef_func_ty(return_z, name, ...) typedef return_z (*name)(__VA_ARGS__);
 
 
 
@@ -646,6 +648,23 @@ _ALIB_FQUAL int alib_beginswith(const char* str, const char* prefix)
         return 0;
     return strncmp(str, prefix, lenprefix) == 0;
 }
+// Get string between two strings
+_ALIB_FQUAL int alib_substr2(const char* input, size_t input_len) {
+    
+}
+// if string begins with X and the character afterward is NOT the last character of the prefix.
+_ALIB_FQUAL int alib_beginswith_anddoesntfollow(const char* str, const char* prefix)
+{
+    if (!str || !prefix)
+        return 0;
+    size_t lenstr = strlen(str);
+    size_t lenprefix = strlen(prefix);
+    if (lenprefix > lenstr)
+        return 0;
+    // No character after
+    if (lenstr < lenprefix + 1) { return strncmp(str, prefix, lenprefix) == 0; } 
+    return strncmp(str, prefix, lenprefix) == 0 && str[lenprefix] != prefix[lenprefix-1];
+}
 // get position of char 
 _ALIB_FQUAL int alib_getchrpos(const char* src, char c, size_t len = 0)
 {
@@ -824,15 +843,27 @@ _ALIB_FQUAL const char* alib_strfmtv(const char* fmt, va_list args) {
     vsprintf((char*)_buf, fmt, args);
     return _buf;
 }
-_ALIB_FQUAL const char* alib_strfmt(const char* fmt, ...) {
+_ALIB_FQUAL char* alib_strfmt(const char* fmt, ...) {
     va_list args;
     va_start(args, fmt);
     size_t bufsz = 0;
     bufsz = snprintf(NULL, 0, fmt, args);
-    const char* _buf = (const char*)malloc(bufsz);
-    vsprintf((char*)_buf, fmt, args);
+    char* _buf = (char*)malloc(bufsz);
+    vsprintf(_buf, fmt, args);
     va_end(args);
     return _buf;
+}
+_ALIB_FQUAL std::string alib_strfmts(const char* fmt, ...) {
+    va_list args;
+    std::string out;
+    va_start(args, fmt);
+    size_t bufsz = 0;
+    bufsz = snprintf(NULL, 0, fmt, args);
+    char _buf[bufsz];
+    vsprintf(_buf, fmt, args);
+    out.append(_buf);
+    va_end(args);
+    return out;
 }
 _ALIB_FQUAL const char* alib_chrrepl(const char* in, char match, char repl_value) {
     while (*(in++)) {
@@ -1159,7 +1190,7 @@ _ALIB_FQUAL FILE* android_fopen(const char* fname, AAssetManager* _mgr) {
 //
 // nlohmann/json utilities
 //
-#if defined(ALIB_JSON_NLOHHMAN) && (!defined(alib_json_utilities__included_))
+#if defined(INCLUDE_NLOHMANN_JSON_HPP_) && (!defined(alib_json_utilities__included_))
 #define alib_json_utilities__included_
 // nlohhman/json included, or alib_force_json defined use these utilities
 

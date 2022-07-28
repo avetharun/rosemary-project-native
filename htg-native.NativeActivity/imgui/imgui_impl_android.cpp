@@ -19,6 +19,7 @@
 
 // CHANGELOG
 // (minor and older changes stripped away, please see git history for details)
+//  2022-07-28: Inputs: Modified the way delta will be calculated for the initial touch, Should not effect mouse cursor.
 //  2022-01-26: Inputs: replaced short-lived io.AddKeyModsEvent() (added two weeks ago)with io.AddKeyEvent() using ImGuiKey_ModXXX flags. Sorry for the confusion.
 //  2022-01-17: Inputs: calling new io.AddMousePosEvent(), io.AddMouseButtonEvent(), io.AddMouseWheelEvent() API (1.87+).
 //  2022-01-10: Inputs: calling new io.AddKeyEvent(), io.AddKeyModsEvent() + io.SetKeyEventNativeData() API (1.87+). Support for full ImGuiKey range.
@@ -35,6 +36,7 @@
 // Android data
 static double                                   g_Time = 0.0;
 static ANativeWindow*                           g_Window;
+static char                                     g_LogTag[] = "ImGuiExample";
 
 static ImGuiKey ImGui_ImplAndroid_KeyCodeToImGuiKey(int32_t key_code)
 {
@@ -197,6 +199,12 @@ int32_t ImGui_ImplAndroid_HandleInputEvent(AInputEvent* input_event)
         switch (event_action)
         {
         case AMOTION_EVENT_ACTION_DOWN:
+            if (AMotionEvent_getToolType(input_event, event_pointer_index) == AMOTION_EVENT_TOOL_TYPE_FINGER) {
+                // When pressing on the screen with the touchscreen, it will cause the cursor to jump to the next position. 
+                // Doing this ensures the delta will be set to the exact position, so it won't happen when using io.MouseDelta
+                // This will only happen when you initially touch the screen, and actual positioning/clicking are still handled.
+                io.MousePosPrev = { AMotionEvent_getX(input_event, event_pointer_index), AMotionEvent_getY(input_event, event_pointer_index) };
+            }
         case AMOTION_EVENT_ACTION_UP:
             // Physical mouse buttons (and probably other physical devices) also invoke the actions AMOTION_EVENT_ACTION_DOWN/_UP,
             // but we have to process them separately to identify the actual button pressed. This is done below via
@@ -204,6 +212,7 @@ int32_t ImGui_ImplAndroid_HandleInputEvent(AInputEvent* input_event)
             if((AMotionEvent_getToolType(input_event, event_pointer_index) == AMOTION_EVENT_TOOL_TYPE_FINGER)
             || (AMotionEvent_getToolType(input_event, event_pointer_index) == AMOTION_EVENT_TOOL_TYPE_UNKNOWN))
             {
+                
                 io.AddMousePosEvent(AMotionEvent_getX(input_event, event_pointer_index), AMotionEvent_getY(input_event, event_pointer_index));
                 io.AddMouseButtonEvent(0, event_action == AMOTION_EVENT_ACTION_DOWN);
             }
@@ -251,14 +260,13 @@ bool ImGui_ImplAndroid_Init(ANativeWindow* window)
 void ImGui_ImplAndroid_Shutdown()
 {
 }
-
-void ImGui_ImplAndroid_NewFrame()
+void ImGui_ImplAndroid_NewFrame(int height)
 {
     ImGuiIO& io = ImGui::GetIO();
-
+    if (height < 0) { height = ANativeWindow_getHeight(g_Window); }
     // Setup display size (every frame to accommodate for window resizing)
     int32_t window_width = ANativeWindow_getWidth(g_Window);
-    int32_t window_height = ANativeWindow_getHeight(g_Window);
+    int32_t window_height = height;
     int display_width = window_width;
     int display_height = window_height;
 

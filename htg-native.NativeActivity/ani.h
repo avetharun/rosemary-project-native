@@ -14,20 +14,42 @@
 #include <linux/usb/f_accessory.h>
 #include <linux/usb/video.h>
 #include <sys/ioctl.h>
+#define ani_nofree static inline
+#include <variant>
 size_t __curl_WriteStringCallback(char* ptr, size_t size, size_t nmemb);
-struct ANIEnv {
-	static inline const char* app_namespace = "com.app.name";
-	static inline JNIEnv* env = 0;
-	static inline JavaVM* vm = 0;
-	static inline struct android_app* app_g = 0;
-	static inline jobject clazz = 0;
-	static int init(JavaVM* __vm, const char* app_namespace, jobject AndroidAppClazz, struct android_app* app) {
+namespace ANIEnv {
+	inline const char* app_namespace = "com.app.name";
+	inline JNIEnv* env = 0;
+	inline JavaVM* vm = 0;
+	inline struct android_app* app_g = 0;
+	inline jobject clazz = 0;
+	// Returns a pointer to a new JNIEnv if it's not already initialized.
+	static inline void EnsureEnvV(JavaVM* thisvm, JNIEnv* _env) {
+		void* __env;
+		thisvm->GetEnv(&__env, JNI_VERSION_1_1);
+		if (__env == NULL) {
+			thisvm->AttachCurrentThread(&_env, NULL);
+		}
+		else { _env = (JNIEnv*)__env; };
+	}
+	// Returns a pointer to a new JNIEnv if it's not already initialized.
+	static inline JNIEnv* EnsureEnv(JavaVM* vm) {
+		void* __env;
+		vm->GetEnv(&__env, JNI_VERSION_1_1);
+		if (__env == NULL) {
+			vm->AttachCurrentThread(&env, NULL);
+		}
+		else { env = (JNIEnv*)__env; };
+		return env;
+	}
+	static inline int init(JavaVM* __vm, const char* app_namespace, jobject AndroidAppClazz, struct android_app* app) {
 		int state_ = 0;
 		ANIEnv::clazz = AndroidAppClazz;
 		ANIEnv::vm = __vm;
 		ANIEnv::app_namespace = app_namespace;
 		state_ = vm->AttachCurrentThread(&ANIEnv::env, 0);
 		ANIEnv::app_g = app;
+		ANIEnv::EnsureEnv(__vm);
 		return state_;
 	}
 };
@@ -50,7 +72,10 @@ namespace ani {
 			jmPutString = env->GetMethodID(jcSharedPreferences_Editor, "putString", "(Ljava/lang/String;Ljava/lang/String;)Landroid/content/SharedPreferences$Editor;");
 			jmPutFloat = env->GetMethodID(jcSharedPreferences_Editor, "putFloat", "(Ljava/lang/String;F)Landroid/content/SharedPreferences$Editor;");
 			jmPutLong = env->GetMethodID(jcSharedPreferences_Editor, "putLong", "(Ljava/lang/String;J)Landroid/content/SharedPreferences$Editor;");
+			jmClear = env->GetMethodID(jcSharedPreferences_Editor, "clear", "()Landroid/content/SharedPreferences$Editor;");
 			jmCommit = env->GetMethodID(jcSharedPreferences_Editor, "commit", "()Z");
+			jmApply = env->GetMethodID(jcSharedPreferences_Editor, "apply", "()V");
+			jmRemove = env->GetMethodID(jcSharedPreferences_Editor, "remove", "(Ljava/lang/String;)Landroid/content/SharedPreferences$Editor;");
 		}
 		//return itself for method chaining
 		const SharedPreferences_Editor& putBoolean(const char* key, const bool value)const {
@@ -61,8 +86,8 @@ namespace ani {
 			env->CallObjectMethod(joSharedPreferences_Edit, jmPutInt, env->NewStringUTF(key), (jint)value);
 			return *this;
 		}
-		const SharedPreferences_Editor& putString(const char* key, const char* value)const {
-			env->CallObjectMethod(joSharedPreferences_Edit, jmPutString, env->NewStringUTF(key), env->NewStringUTF(value));
+		const SharedPreferences_Editor& putString(const char* key, std::string value)const {
+			env->CallObjectMethod(joSharedPreferences_Edit, jmPutString, env->NewStringUTF(key), env->NewStringUTF(value.c_str()));
 			return *this;
 		}
 		const SharedPreferences_Editor& putLong(const char* key, float value)const {
@@ -76,6 +101,17 @@ namespace ani {
 		bool commit()const {
 			return (bool)env->CallBooleanMethod(joSharedPreferences_Edit, jmCommit);
 		}
+		void apply()const {
+			env->CallVoidMethod(joSharedPreferences_Edit, jmApply);
+		}
+		const SharedPreferences_Editor& clear()const {
+			env->CallObjectMethod(joSharedPreferences_Edit, jmClear);
+			return *this;
+		}
+		const SharedPreferences_Editor& remove(const char* key)const {
+			env->CallObjectMethod(joSharedPreferences_Edit, jmRemove, env->NewStringUTF(key));
+			return *this;
+		}
 	private:
 		JNIEnv* env;
 		jobject joSharedPreferences_Edit;
@@ -85,6 +121,9 @@ namespace ani {
 		jmethodID jmPutLong;
 		jmethodID jmPutString;
 		jmethodID jmCommit;
+		jmethodID jmApply;
+		jmethodID jmClear;
+		jmethodID jmRemove;
 	};
 
 
@@ -118,6 +157,7 @@ namespace ani {
 			jmethodID jmGetSharedPreferences = env->GetMethodID(jcContext, "getSharedPreferences", "(Ljava/lang/String;I)Landroid/content/SharedPreferences;");
 			joSharedPreferences = env->CallObjectMethod(activity_clazz, jmGetSharedPreferences, env->NewStringUTF(name), MODE_PRIVATE);
 			//jmEdit_commit=env->GetMethodID(jcSharedPreferences_Editor,"putString","(Ljava/lang/String;Ljava/lang/String;)Landroid/content/SharedPreferences$Editor;");
+			jmContains = env->GetMethodID(jcSharedPreferences, "contains", "(Ljava/lang/String;)Z");
 			if (keepReference) {
 				joSharedPreferences = env->NewWeakGlobalRef(joSharedPreferences);
 			}
@@ -134,6 +174,7 @@ namespace ani {
 		jmethodID jmGetFloat;
 		jmethodID jmGetString;
 		jmethodID jmEdit;
+		jmethodID jmContains;
 	public:
 		bool getBoolean(const char* id, bool defaultValue = false)const {
 			return (bool)(env->CallBooleanMethod(joSharedPreferences, jmGetBoolean, env->NewStringUTF(id), (jboolean)defaultValue));
@@ -175,6 +216,17 @@ namespace ani {
 			//__android_log_print(ANDROID_LOG_DEBUG, "SharedPreferences","%s",ret.c_str());
 			*out = ret;
 		}
+		void getString(const char* id, char* out, size_t out_len, const char* defaultValue = "")const {
+			auto value = (jstring)(env->CallObjectMethod(joSharedPreferences, jmGetString, env->NewStringUTF(id), env->NewStringUTF(defaultValue)));
+			const char* valueP = env->GetStringUTFChars(value, nullptr);
+			const std::string ret = std::string(valueP);
+			env->ReleaseStringUTFChars(value, valueP);
+			//__android_log_print(ANDROID_LOG_DEBUG, "SharedPreferences","%s",ret.c_str());
+			strncpy(out, ret.c_str(), out_len);
+		}
+		bool contains(std::string id) {
+			return env->CallBooleanMethod(joSharedPreferences, jmContains, env->NewStringUTF(id.c_str()));
+		}
 		SharedPreferences_Editor edit()const {
 			//create a instance of SharedPreferences.Editor and store it in @joSharedPreferences_Edit
 			jobject joSharedPreferences_Edit = env->CallObjectMethod(joSharedPreferences, jmEdit);
@@ -190,19 +242,20 @@ namespace ani {
 	// end shared prefs
 	struct Networking {
 		static void openURLBrowser(const char* url) {
-			jstring url_string = ANIEnv::env->NewStringUTF(url);
-			jclass uri_class = ANIEnv::env->FindClass("android/net/Uri");
-			jmethodID uri_parse = ANIEnv::env->GetStaticMethodID(uri_class, "parse", "(Ljava/lang/String;)Landroid/net/Uri;");
-			jobject uri = ANIEnv::env->CallStaticObjectMethod(uri_class, uri_parse, url_string);
-			jclass intent_class = ANIEnv::env->FindClass("android/content/Intent");
-			jfieldID action_view_id = ANIEnv::env->GetStaticFieldID(intent_class, "ACTION_VIEW", "Ljava/lang/String;");
-			jobject action_view = ANIEnv::env->GetStaticObjectField(intent_class, action_view_id);
-			jmethodID new_intent = ANIEnv::env->GetMethodID(intent_class, "<init>", "(Ljava/lang/String;Landroid/net/Uri;)V");
-			jobject intent = ANIEnv::env->AllocObject(intent_class);
-			ANIEnv::env->CallVoidMethod(intent, new_intent, action_view, uri);
-			jclass activity_class = ANIEnv::env->FindClass("android/app/Activity");
-			jmethodID start_activity = ANIEnv::env->GetMethodID(activity_class, "startActivity", "(Landroid/content/Intent;)V");
-			ANIEnv::env->CallVoidMethod(ANIEnv::clazz, start_activity, intent);
+			JNIEnv* env = ANIEnv::EnsureEnv(ANIEnv::vm);
+			jstring url_string = env->NewStringUTF(url);
+			jclass uri_class = env->FindClass("android/net/Uri");
+			jmethodID uri_parse = env->GetStaticMethodID(uri_class, "parse", "(Ljava/lang/String;)Landroid/net/Uri;");
+			jobject uri = env->CallStaticObjectMethod(uri_class, uri_parse, url_string);
+			jclass intent_class = env->FindClass("android/content/Intent");
+			jfieldID action_view_id = env->GetStaticFieldID(intent_class, "ACTION_VIEW", "Ljava/lang/String;");
+			jobject action_view = env->GetStaticObjectField(intent_class, action_view_id);
+			jmethodID new_intent = env->GetMethodID(intent_class, "<init>", "(Ljava/lang/String;Landroid/net/Uri;)V");
+			jobject intent = env->AllocObject(intent_class);
+			env->CallVoidMethod(intent, new_intent, action_view, uri);
+			jclass activity_class = env->FindClass("android/app/Activity");
+			jmethodID start_activity = env->GetMethodID(activity_class, "startActivity", "(Landroid/content/Intent;)V");
+			env->CallVoidMethod(ANIEnv::clazz, start_activity, intent);
 		}
 		static inline CURLcode last_curl_response = {};
 		static inline bool _is_curl_init__ = false;
@@ -312,12 +365,54 @@ namespace ani {
 			return __sysobj;
 		}
 	};
+	struct Settings {
+		struct Global {
+		};
+		struct Secure {
+		};
+	};
+	static inline jobject getGlobalContext(JNIEnv* env)
+	{
+
+		jclass activityThread = env->FindClass("android/app/ActivityThread");
+		jmethodID currentActivityThread = env->GetStaticMethodID(activityThread, "currentActivityThread", "()Landroid/app/ActivityThread;");
+		jobject at = env->CallStaticObjectMethod(activityThread, currentActivityThread);
+
+		jmethodID getApplication = env->GetMethodID(activityThread, "getApplication", "()Landroid/app/Application;");
+		jobject context = env->CallObjectMethod(at, getApplication);
+		return context;
+	}
+	bool adb_enabled() {
+		bool out = false;
+		JNIEnv* jni;
+		ANIEnv::app_g->activity->vm->AttachCurrentThread(&jni, NULL);
+		jclass c_settings_secure = jni->FindClass("android/provider/Settings$Secure");
+		jclass c_context = jni->FindClass("android/content/Context");
+		//Get the getContentResolver method
+		jmethodID m_get_content_resolver = jni->GetMethodID(c_context, "getContentResolver",
+			"()Landroid/content/ContentResolver;");
+		//Get the Settings.Secure.ANDROID_ID constant
+		jfieldID f_android_id = jni->GetStaticFieldID(c_settings_secure, "ADB_ENABLED", "Ljava/lang/String;");
+		jstring s_android_id = (jstring)jni->GetStaticObjectField(c_settings_secure, f_android_id);
+		//create a ContentResolver instance context.getContentResolver()
+		jobject o_content_resolver = jni->CallObjectMethod(getGlobalContext(jni), m_get_content_resolver);
+		jmethodID m_get_int = jni->GetStaticMethodID(c_settings_secure, "getInt",
+			"(Landroid/content/ContentResolver;Ljava/lang/String;)I");
+		//get the setting value
+		jint android_id = jni->CallStaticIntMethod(c_settings_secure,
+			m_get_int,
+			o_content_resolver,
+			s_android_id);
+		if (android_id == 1) { out = true; }
+		ANIEnv::app_g->activity->vm->DetachCurrentThread();
+		return out;
+	}
 };
 
 
 size_t __curl_WriteStringCallback(char* ptr, size_t size, size_t nmemb)
 {
-	ani::Networking::__curl_request_data += std::string(ptr, size * nmemb);;
+	ani::Networking::__curl_request_data += std::string(ptr, size * nmemb);
 	int totalSize = size * nmemb;
 	return totalSize;
 }

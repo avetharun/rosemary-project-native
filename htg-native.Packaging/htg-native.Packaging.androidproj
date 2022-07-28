@@ -134,6 +134,7 @@
     <Content Include="assets\test\test.txt" />
     <Content Include="assets\unknown_texture.png" />
     <Content Include="assets\unknown_texture.png.kra" />
+    <Content Include="assets\translations\en-us.json" />
     <Content Include="res\mipmap-anydpi-v26\ic_launcher.xml" />
     <Content Include="res\mipmap-hdpi\ic_launcher.png" />
     <Content Include="res\mipmap-hdpi\ic_launcher_adaptive_back.png" />

@@ -288,8 +288,15 @@
   <ItemGroup>
     <ClInclude Include="ani.h" />
     <ClInclude Include="cwerror.h" />
-    <ClInclude Include="imgui\implot.h" />
-    <ClInclude Include="imgui\implot_internal.h" />
+    <ClInclude Include="imgui\imgui_markdown.h" />
+    <ClInclude Include="ndk-helper\gestureDetector.h" />
+    <ClInclude Include="ndk-helper\interpolator.h" />
+    <ClInclude Include="ndk-helper\JNIHelper.h" />
+    <ClInclude Include="ndk-helper\NDKHelper.h" />
+    <ClInclude Include="ndk-helper\perfMonitor.h" />
+    <ClInclude Include="ndk-helper\shader.h" />
+    <ClInclude Include="ndk-helper\tapCamera.h" />
+    <ClInclude Include="ndk-helper\vecmath.h" />
     <ClInclude Include="rsm_assets.h" />
     <ClInclude Include="rsm_hooks.h" />
     <ClInclude Include="image_parse_face.h" />
@@ -324,14 +331,21 @@
     <ClCompile Include="imgui\imgui_impl_opengl3.cpp" />
     <ClCompile Include="imgui\imgui_tables.cpp" />
     <ClCompile Include="imgui\imgui_widgets.cpp" />
-    <ClCompile Include="imgui\implot.cpp" />
-    <ClCompile Include="imgui\implot_items.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="ndk-helper\gestureDetector.cpp" />
+    <ClCompile Include="ndk-helper\interpolator.cpp" />
+    <ClCompile Include="ndk-helper\JNIHelper.cpp" />
+    <ClCompile Include="ndk-helper\perfMonitor.cpp" />
+    <ClCompile Include="ndk-helper\shader.cpp" />
+    <ClCompile Include="ndk-helper\tapCamera.cpp" />
+    <ClCompile Include="ndk-helper\vecmath.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="cpp.hint" />
+    <None Include="ndk-helper\NOTICE" />
   </ItemGroup>
   <ItemGroup>
+    <Text Include="ascii_bmfm.txt" />
     <Text Include="symbol_icon_src.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

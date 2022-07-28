@@ -76,9 +76,9 @@ struct cwError {
 		if (!debug_enabled && (warningState == CW_DEBUG)) {
 			return;
 		}
-		free(const_cast<char*>(errorStr));
 		alib_va_arg_parse(const_cast<char*>(errorStr), fmt, args);
 		onError(errorStr, sstate());
+		free(const_cast<char*>(errorStr));
 	}
 	static void serrof(const char* fmt, ...) {
 		// return if debugging isn't enabled, and are sending a debug message.
@@ -92,6 +92,7 @@ struct cwError {
 		vsprintf((char*)errorStr, fmt, args);
 		va_end(args);
 		onError(errorStr, sstate());
+		free(const_cast<char*>(errorStr));
 	}
 };
 

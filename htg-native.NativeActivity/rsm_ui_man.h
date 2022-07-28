@@ -6,18 +6,28 @@
 #include "imgui/imgui_format.h"
 
 struct GlobalState {
+	// Keyboard height in pixels
+	static inline int KeyboardHeight;
+	// Height of the status (notification) bar in pixels
+	static inline int StatusBarHeight;
+	static inline bool statusbar_visible = false;
+	static inline int DisplayHeightTotal = 0;
+	static inline bool keyboard_visible = false;
+	static inline ImVec2 screen_size = {};
+	static inline ImVec2 ui_begin = {};
 	static inline bool ShowSettingsWindow = false;
 	static inline bool ShowMainWindow = true;
 	static inline bool ShowDebugWindow = false;
 	static inline bool ShowCameraWindow = false;
 	static inline bool ShowCharSelectWindow = false;
+	static inline bool ShowCharAddWindow = false;
 	static inline bool ShowLicenseWindow = false;
 	static inline bool ShowCreditsWindow = false;
+	// Settings
 	static inline int SerialWebsocketPort = 802;
 	static inline bool UseSerialWebsocket = false;
 	static inline bool UseSerialUSB = false;
-	static inline ImVec2 screen_size = {};
-	static inline ImVec2 ui_begin = {};
+	static inline char DeviceFriendlyName[128]{"RSM Mobile Camera Instance"};
 };
 
 
@@ -28,48 +38,50 @@ namespace rsm {
 		static inline ImFont* arial = nullptr;
 		static inline ImFont* proggy = nullptr;
 	};
-	struct UIActivity;
 	// Layout for a given scrne
 	struct Layout {
+		// Disable projecting the globalState::ui_begin vec onto the element
+		bool DisableGlobalUIBegin;
 		bool top, bottom, left, right, center;
 		ImVec2 CalcElement(ImVec2 elem_size) {
-			GlobalState::screen_size = ImGui::GetIO().DisplaySize;
-			GlobalState::ui_begin = { GlobalState::screen_size.x * 0.0001f,GlobalState::screen_size.y * 0.05f };
 			ImVec2 pos;
 			if (top) {
-				pos.y = GlobalState::ui_begin.y;
+				pos.y = 0;
 			}
 			if (bottom) {
 				pos.y = GlobalState::screen_size.y - elem_size.y - ImGui::GetStyle().ItemSpacing.x;
 			}
 			if (left) {
-				pos.x = GlobalState::ui_begin.x;
+				pos.x = 0;
 			}
 			if (right) {
 				pos.x = GlobalState::screen_size.x - elem_size.x - ImGui::GetStyle().ItemSpacing.x;
+			}
+			if (!DisableGlobalUIBegin) {
+				pos = ImVec2{ pos.x + GlobalState::ui_begin.x, pos.y + GlobalState::ui_begin.y };
 			}
 			return {};
 		}
 		bool Button(const char* label) {
 			ImVec2 cspos = CalcElement(ImGui::CalcTextSize(label));
-			ImGui::SetCursorPos(cspos);
+			ImGui::SetCursorScreenPos(cspos);
 			return ImGui::Button(label);
 		}
-		void Text(const char* text) { 
-			ImGui::Text("%s", text);
+		void TextV(const char* fmt, va_list args) {
+			const char* text = alib_strfmtv(fmt, args);
+			ImVec2 cspos = CalcElement(ImGui::CalcTextSize(text));
+			ImGui::SetCursorScreenPos(cspos);
+			ImGui::TextV(fmt, args);
+		}
+		void Text(const char* fmt, ...) {
+			va_list args;
+			va_start(args, fmt);
+			ImGui::SameLine();
+			this->TextV(fmt, args);
+			va_end(args);
+			ImGui::NewLine();
 		}
 	};
-	struct UIActivity : private rsm::RenderHook{
-		std::vector<ImGui::ElementStubImpl*> __scene_elements;
-		virtual void Render() {}
-		// recalc ui position and scale using anchors and sizes
-		void PreRender() {
-			for (int i = 0; i < __scene_elements.size(); i++) {
-				auto thiselem = __scene_elements.at(i);
-				thiselem->RenderImpl();
-			}
-		}
-	}; 
 };
 
 #endif

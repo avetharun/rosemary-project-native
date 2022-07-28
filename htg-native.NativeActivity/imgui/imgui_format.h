@@ -119,12 +119,20 @@ namespace ImGui {
 		operator ImColor() { return {getr(), getg(), getb(), geta()}; }
 		//operator ImVec4() { return { (float)getr(), (float)getg(), (float)getb(), (float)geta() }; }
 		operator ImU32() { return ImGui::ColorConvertFloat4ToU32({ (float)getr(), (float)getg(), (float)getb(), (float)geta() }); }
-		const char* tostring() {
-			return alib_strfmt("%c%02x%02x%02x%c", ColorMarkerStart, getr(), getg(), getb(), ColorMarkerEnd);
+		// Convert the color to a format understood by TextMulticolored()
+		char* tostring() {
+			char* tmp = alib_strfmt("%c%02x%02x%02x%c", ColorMarkerStart, getr(), getg(), getb(), ColorMarkerEnd);
+			char out[24]; strcpy(out, tmp);
+			free(tmp);
+			return out;
 		}
 		// String to reset color
 		static const char* resetstr() {
-			return alib_strfmt("%c%c", ColorMarkerStart, ColorMarkerEnd);
+			char* tmp = alib_strfmt("%c%c", ColorMarkerStart, ColorMarkerEnd);
+			char out[4]; strcpy(out, tmp);
+			out[3] = '\0';
+			free(tmp);
+			return out;
 		}
 	};
 	ImRGB ColorConvertHSVtoRGB(ImHSV _hsv) { return _hsv; }
@@ -237,78 +245,6 @@ namespace ImGui {
 			ImGui::PopStyleColor();
 		}
 	}
-	void __TextColouredFormattedImplWrappedV(const char* fmt, va_list args) {
-		return;
-		// depeciated, not working as of now.
-		// 
-		// 
-		//char tempStr[4096];
-		//vsnprintf(tempStr, sizeof(tempStr), fmt, args);
-		//
-		//tempStr[sizeof(tempStr) - 1] = '\0';
-		//ImVec2 cursorpos = GetCursorPos();
-		//bool pushedColorStyle = false;
-		//const char* textStart = tempStr;
-		//const char* textCur = tempStr;
-		//while (textCur < (tempStr + sizeof(tempStr)) && *textCur != '\0')
-		//{
-		//	if (*textCur == ColorMarkerStart)
-		//	{
-		//		// Print accumulated text from last color
-		//		if (textCur != textStart)
-		//		{
-		//			ImGui::NewLine();
-		//			ImGui::TextWrappedUnformatted(textStart, textCur);
-		//			ImGui::SameLine();
-		//		}
-		//
-		//		// Process color code
-		//		const char* colorStart = textCur + 1;
-		//		do
-		//		{
-		//			++textCur;
-		//		} while (*textCur != '\0' && *textCur != ColorMarkerEnd);
-		//
-		//		// Change color
-		//		if (pushedColorStyle)
-		//		{
-		//			ImGui::PopStyleColor();
-		//			pushedColorStyle = false;
-		//		}
-		//
-		//		ImVec4 textColor;
-		//		if (__ProcessInlineHexColorImpl(colorStart, textCur, textColor))
-		//		{
-		//			ImGui::PushStyleColor(ImGuiCol_Text, textColor);
-		//			pushedColorStyle = true;
-		//		}
-		//
-		//		textStart = textCur + 1;
-		//	}
-		//	else if (*textCur == '\n')
-		//	{
-		//		// Print accumulated text an go to next line
-		//		ImGui::TextWrappedUnformatted(textStart, textCur);
-		//		textStart = textCur + 1;
-		//	}
-		//
-		//	++textCur;
-		//}
-		//
-		//if (textCur != textStart)
-		//{
-		//	ImGui::TextWrappedUnformatted(textStart, textCur);
-		//}
-		//else
-		//{
-		//	ImGui::NewLine();
-		//}
-		//
-		//if (pushedColorStyle)
-		//{
-		//	ImGui::PopStyleColor();
-		//}
-	}
 	void __TextColouredFormattedImpl(const char* fmt, ...)
 	{
 		va_list argPtr;
@@ -316,12 +252,14 @@ namespace ImGui {
 		__TextColouredFormattedImplV(fmt, argPtr);
 		va_end(argPtr);
 	}
+	// Note: multicolored starts are formatted as follows BBGGRRAA. AA is optional.
 	void TextMulticolored(const char* fmt, ...) {
 		va_list argPtr;
 		va_start(argPtr, fmt);
 		__TextColouredFormattedImplV(fmt, argPtr);
 		va_end(argPtr);
 	}
+	// Note: multicolored starts are formatted as follows BBGGRRAA. AA is optional.
 	void TextMulticoloured(const char* fmt, ...) {
 		va_list argPtr;
 		va_start(argPtr, fmt);

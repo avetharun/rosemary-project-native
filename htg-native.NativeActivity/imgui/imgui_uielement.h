@@ -1,3 +1,4 @@
+#pragma once
 #ifndef __rosemary_project_imgui_uielement_h_
 #define __rosemary_project_imgui_uielement_h_
 #include "imgui.h"
@@ -12,8 +13,6 @@
 #ifndef PI
 #define PI 3.14159265358979323846
 #endif
-#include "implot.h"
-#include "implot_internal.h"
 
 
 enum {
@@ -50,6 +49,18 @@ namespace ImGui {
 			( in.x + ImGui::GetWindowPos().x ) - ImGui::GetCurrentWindow()->Scroll.y
 		};
 		return out;
+	}
+	ImVector<float> __imFontSizeStack;
+	void PushFontScale(float scale) {
+		__imFontSizeStack.push_back(scale);
+		ImGui::SetWindowFontScale(__imFontSizeStack.front());
+	}
+	void PopFontScale() {
+		if (__imFontSizeStack.size() == 0) { return; }
+		__imFontSizeStack.pop_back();
+		// ensure we keep default font size if stack is empty after popping.
+		if (__imFontSizeStack.size() == 0) { ImGui::SetWindowFontScale(1.0f); return; }
+		ImGui::SetWindowFontScale(__imFontSizeStack.front());
 	}
 	static inline ImRect ScaleRect(ImRect __in, float amount) {
 		ImVec4 in = __in.ToVec4();
@@ -114,7 +125,7 @@ namespace ImGui {
 			window->Scroll.y -= (delta.y);
 		}
 	}
-	enum ElementsEnum : long {
+	enum ElementsEnum : long long {
 		ImGui_AllElements = B32(10000000, 00000000, 00000000, 00000000),
 		ImGui_TextElement = B32(00000000, 00000000, 00000000, 00000010),
 		ImGui_ButtonElement = B32(00000000, 00000000, 00000000, 00000100),
@@ -195,6 +206,7 @@ namespace ImGui {
 		ImGui::GetForegroundDrawList()->AddText(pos, GetColorU32(ImGuiCol_Text), text);
 		//ImGui::GetCurrentContext()->Font->RenderText(ImGui::GetForegroundDrawList(), ImGui::GetCurrentContext()->FontSize, pos, ImRGB(128, 128, 255), tclp, text, 0);
 	}
+
 	static inline void Circle(ImVec2 center, float radius, ImColor col = IM_COL32(255,0,0,255), bool filled = true) {
 		if (!filled) { ImGui::GetWindowDrawList()->AddCircle(center, radius, col, 0, 12); }
 		if (filled) { ImGui::GetWindowDrawList()->AddCircleFilled(center, radius, col, 0); }
@@ -220,6 +232,7 @@ namespace ImGui {
 			alib_percentf(size.x, percentage),
 			size.y
 		};
+		// shorthand for window_drawlist->RectFilled()
 		RectFilled({ r.x,r.y }, {r.z, r.w}, ImGui::GetStyleColorVec4(ImGuiCol_ButtonActive), rounding);
 		ImVec4 __col = ImGui::GetStyleColorVec4(ImGuiCol_Button);
 		ImRGB __out_col = {
@@ -234,16 +247,18 @@ namespace ImGui {
 			pos.y + local.y + border_thickness
 		};
 		RectUnfilled(__pos_overlay, size, __out_col, rounding);
-		ImGui::SetCursorPosY(ImGui::GetCursorPosX() + size.x);
+		ImGui::SetCursorPosY(ImGui::GetCursorPosX() + size.y);
 	}
 	// Create a loading circle
 	// Percentage must be 0-100, otherwise it will just clamp to 100.
 	// Uses colors from the Button colorset (ImGuiCol_Button for the background, ImGuiCol_ButtonActive for the indicator)
-	static inline void LoadingCircle(float percentage, float radius) {
+	static inline void LoadingCircle(float percentage, float radius = 0) {
+		if (radius == 0) { radius = ImGui::GetStyle().ItemInnerSpacing.x * 5 + 1; }
 		ImVec2 pos = GetCursorScreenPos();
 		ImVec4 col = ImGui::GetStyleColorVec4(ImGuiCol_Button);
 		col.w = 255;
-		ImVec2 c = {pos.x + radius, pos.y + radius};
+		// The center's y position needs to  be 2*radius because it'll clip otherwise.
+		ImVec2 c = {pos.x + radius, pos.y + ( radius * 2 )};
 		alib_clampptr(&percentage, 0.0f, 100.0f);
 		ImDrawList* dl = ImGui::GetWindowDrawList();
 		float x, y = 0;
@@ -252,7 +267,6 @@ namespace ImGui {
 		if (percentage != 100) {
 			points.push_back(c);
 		}
-		if (radius == 0) { radius = 12; }
 		// These need to be these numbers to be smooth. Don't worry, it doesn't add much overhead.
 		float amt = (percentage * 0.01) * (M_PI * 2);
 		float amt_step = 0.01f;
@@ -271,12 +285,45 @@ namespace ImGui {
 			steps ++;
 		}
 
-		
 		// background circle
 		dl->AddCircleFilled(c, radius * 1.05f, ImGui::GetColorU32(ImGuiCol_Button));
 		dl->AddConvexPolyFilled(points.data(), points.size(), ImGui::ColorConvertFloat4ToU32(col));
-		ImGui::SetCursorPosY(( ImGui::GetCursorPosY() + radius * 2 ) + ImGui::GetStyle().ItemSpacing.y);
-		TextForeground(alib_strfmt("Amount of steps: %f", steps), GetCursorPos());
+		ImGui::SetCursorPosY((ImGui::GetCursorPosY() + radius * 2) + ImGui::GetStyle().ItemSpacing.y);
+	}
+	// Create a loading circle  that's hollow (see: https://img.icons8.com/office/480/spinning-circle.png)
+	// Percentage must be 0-100, otherwise it will just clamp to 100.
+	// Uses colors from the Button colorset (ImGuiCol_Button for the background, ImGuiCol_ButtonActive for the indicator)
+	static inline void LoadingCircleHollow(float percentage, float radius = 0) {
+		if (radius == 0) { radius = ImGui::GetStyle().ItemInnerSpacing.x * 5 + 1; }
+		ImVec2 pos = GetCursorScreenPos();
+		ImVec4 col = ImGui::GetStyleColorVec4(ImGuiCol_Button);
+		col.w = 255;
+		ImVec2 c = { pos.x + radius, pos.y + (radius * 2) };
+		alib_clampptr(&percentage, 0.0f, 100.0f);
+		ImDrawList* dl = ImGui::GetWindowDrawList();
+		float x, y = 0;
+		std::vector<ImVec2> points;
+		// These need to be these numbers to be smooth. Don't worry, it doesn't add much overhead.
+		float amt = (percentage * 0.01) * (M_PI * 2);
+		float amt_step = 0.01f;
+		double steps;
+		for (float i = 0; i <= amt;) {
+			x = radius * cos(i) + c.x;
+			y = radius * sin(i) + c.y;
+			ImVec2 _first(x, y);
+			i = i + amt_step;
+			x = radius * cos(i) + c.x;
+			y = radius * sin(i) + c.y;
+			ImVec2 _second(x, y);
+			i = i + amt_step;
+			points.push_back(_first);
+			points.push_back(_second);
+			steps++;
+		}
+		// background circle
+		dl->AddCircle(c, radius, ImGui::GetColorU32(ImGuiCol_Button), 0, radius * 0.185f);
+		dl->AddPolyline(points.data(), points.size(), ImGui::ColorConvertFloat4ToU32(col), ImDrawFlags_RoundCornersAll,  radius * 0.2f);
+		ImGui::SetCursorPosY((ImGui::GetCursorPosY() + radius * 2) + ImGui::GetStyle().ItemSpacing.y);
 	}
 	static inline void InputTextPositioned(const char* label, char* buf, size_t buf_size, ImVec2 position, ImGuiInputTextFlags flags = 0, ImGuiInputTextCallback callback = 0, void* user_data = 0) {
 		ImVec2 l_pos = ImGui::GetCursorPos();
@@ -285,10 +332,10 @@ namespace ImGui {
 		ImGui::InputText(label, buf, buf_size, flags, callback, user_data);
 		ImGui::SetCursorPos(l_pos);
 	}
-	static inline void ImagePositioned(ImTextureID texid, ImVec2 begin, ImVec2 size) {
+	static inline void ImagePositioned(ImTextureID texid, ImVec2 begin, ImVec2 size, bool centered=true) {
 		ImVec2 l_pos = ImGui::GetCursorPos();
 		ImGui::SetCursorPos(ImVec2(begin.x-1, begin.y-1));
-		ImGui::GetWindowDrawList()->AddImage(texid, begin, size);
+		ImGui::GetWindowDrawList()->AddImage(texid, { begin.x - (size.x * 0.5f), begin.y - (size.y * 0.5f)}, {begin.x + size.x, begin.y + size.y});
 		ImGui::SetCursorPos(l_pos);
 	}
 	// An arrow drawn to look like a "back arrow" from android. Defaults to  pointing left.
@@ -345,12 +392,12 @@ namespace ImGui {
 				ImGui::DrawLine(center_right, center_bottom, col_btn, thickness); 
 			} break;
 		}
-		ImGui::SetCursorPosY(s_p.y + height * 1.25f);
+		ImGui::SetCursorPosY(s_p.y + height + ImGui::GetStyle().ItemSpacing.y);
 
 		return ret;
 	}
 	ImVec2 GetDefaultFABSize() {
-		float height = ImGui::GetFrameHeightWithSpacing() * 1.5f;
+		float height = ImGui::GetStyle().ItemSpacing.y * 1.5f;
 		// FABs are always a square.
 		return { height, height };
 	}
@@ -362,7 +409,8 @@ namespace ImGui {
 	// Styled as a FAB from android
 	// See:  https://developer.android.com/training/material/images/fab.png
 	// Inherits color from ImGuiCol_Button, ImGuiCol_ButtonActive (Unpressed, pressed)
-	bool FloatingActionButton(const char* str_id, bool* v, ImTextureID texture = 0) {
+	// Everything is shown in foreground, so don't worry about using this inside an imgui window.
+	bool FloatingActionButton(const char* label, bool* v = NULL) {
 		ImVec2 sp = ImGui::GetCursorScreenPos();
 		ImVec2 p = ImGui::GetCursorPos();
 		ImDrawList* draw_list = ImGui::GetWindowDrawList();
@@ -373,20 +421,20 @@ namespace ImGui {
 		float radius = height * 0.5f;
 		bool ret = false;
 		ImGui::SetCursorScreenPos(ideal_pos);
-		ImGui::InvisibleButton(str_id, { width, height });
+		ImGui::Button(label, { width, height });
 		if (ImGui::IsItemClicked()) {
-			*v = !*v;
+			if (v != NULL) {
+				*v = !*v;
+			}
 			ret = true;
 		}
 		ImVec4* colors = ImGui::GetStyle().Colors;
 		ImColor col_btn_active = GetStyle().Colors[ImGuiCol_ButtonActive];
 		ImColor col_btn = GetStyle().Colors[ImGuiCol_Button];
-		ImGui::RectFilled(ideal_pos, {width, height}, *v ? col_btn_active : col_btn, radius);
-		if (texture) {
-			ImVec2 __offset = { ideal_size.x * 0.3f, ideal_size.y * 0.3f };
-			ImGui::SetCursorPos({ideal_pos.x + __offset.x, ideal_pos.y + __offset.y});
-			ImGui::Image(texture, { ideal_size.x * 0.5f, ideal_size.y * 0.5f});
-		}
+		ImGui::GetForegroundDrawList()->AddRectFilled(ideal_pos, ideal_size, ret ? col_btn_active : col_btn, radius);
+		//ImGui::GetForegroundDrawList()->AddCircleFilled(ideal_pos, radius, ret ? col_btn_active : col_btn);
+		ImVec2 __offset = { ideal_size.x * 0.3f, ideal_size.y * 0.3f };
+		ImGui::TextForeground(std::string(label, 1).c_str(), { ideal_pos.x + __offset.x, ideal_pos.y + __offset.y });
 		ImGui::SetCursorScreenPos(sp);
 		ImGui::SetCursorPos(p);
 		return ret;
@@ -423,27 +471,6 @@ namespace ImGui {
 
 		}
 		return ret;
-	}
-	// A button with only text visible.
-	// Text colors inherit from ImGuiCol_Button**
-	bool TextButton(const char* str_id, const char* txt) {
-		bool out = false;
-		ImVec2 pos = GetCursorPos();
-		ImVec2 txt_sz = CalcTextSize(txt);
-		ImGui::TextMulticolored(txt);
-		ImGui::SetCursorPos(pos);
-		ImGui::InvisibleButton(str_id, txt_sz);
-		if (IsItemClicked()) { out = true; }
-		return out;
-	}
-	void UnderlineText()
-	{
-		ImVec2 min = GetItemRectMin();
-		ImVec2 max = GetItemRectMax();
-		min.y = max.y;
-		float underline_width = GetFontSize() * 0.1f;
-		GetWindowDrawList()->AddLine(
-			min, max, ImGui::ColorConvertFloat4ToU32(ImGui::GetStyle().Colors[ImGuiCol_Text]), underline_width);
 	}
 	struct MarkdownVars {
 		struct MarkdownHeader {
@@ -520,119 +547,6 @@ namespace ImGui {
 		rotation_start_index = ImGui::GetWindowDrawList()->VtxBuffer.Size;
 	}
 
-	inline void DrawCharItalic(char chr) {
-		ImRotateStart();
-		const char* s = alib_strfmt("%c", chr);
-		ImVec2 __s_sz = CalcTextSize(s);
-		//ImGui::SetCursorPosY(GetCursorPos().y + __s_sz.y * 0.005f );
-		ImGui::Text(s);
-		free((void*)s);
-		ImRotateEnd(-3);
-
-	}
-	inline void DrawCharBold(char chr) {
-		const char* s = alib_strfmt("%c", chr);
-		float font_sz = GetCurrentContext()->Font->FontSize;
-		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { font_sz * 0.05f, font_sz * 0.05f });
-		ImVec2 __s_sz = CalcTextSize(s);
-		float cur_fscl = ImGui::GetCurrentWindow()->FontWindowScale;
-		ImGui::SetWindowFontScale(1.15);
-		ImGui::Text(s);
-		free((void*)s);
-		ImGui::SetWindowFontScale(cur_fscl);
-		ImGui::PopStyleVar();
-
-	}
-	void ItalicText(const char* text) {
-		//SetCursorPosX(GetCursorPosX())
-		float font_sz = GetCurrentContext()->Font->FontSize;
-		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { font_sz * 0.025f, font_sz * 0.025f });
-		while (*(text)) {
-			DrawCharItalic(*text);
-			if (*( (text++) + 1)) {
-				ImGui::SameLine();
-			}
-		}
-		ImGui::PopStyleVar();
-	}
-	void BoldText(const char* text) {
-		float font_sz = GetCurrentContext()->Font->FontSize;
-		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, { font_sz * 0.00050f, font_sz * 0.00050f });
-		float cur_fscl = ImGui::GetCurrentWindow()->FontWindowScale;
-		ImGui::SetWindowFontScale(1.15);
-		ImGui::TextWrapped(text);
-		ImGui::SetWindowFontScale(cur_fscl);
-		ImGui::PopStyleVar();
-	}
-
-	// Quote bar inherits color from ImGuiCol_Button
-	void QuoteText(const char* text) {
-		ImVec2 p_c = GetCursorScreenPos();
-		ImVec2 bar_off = { GetIO().DisplaySize.x * 0.01f,0 };
-		SetCursorScreenPos(p_c + bar_off);
-		ImGui::TextWrapped(text);
-		ImVec2 w_s = WrappedSize();
-		DrawLine(p_c, p_c + w_s, GetColorU32(ImGuiCol_Button), bar_off.x * 0.75f);
-	}
-	void CodeText(const char* text) {
-	}
-
-	// todo: add a formatting parser
-	void MarkdownText(const char* text) {
-			
-	}
-	struct __animated_texture_stack_var {
-		__animated_texture_stack_var() {};
-		ImVec2 pos = {0,0};
-		float delta_offset = 0;
-		float framerate = 32;
-		ImVec2 UV0 = {};
-		ImVec2 UV1 = {};
-		std::vector<ImTextureID> textures;
-	};
-	struct AnimatedTextureStackT{
-		static inline size_t cursor = 0;
-		static inline std::vector<std::pair<std::string, __animated_texture_stack_var>> stack = {};
-		static __animated_texture_stack_var* get_at(std::string id) {
-			for (int i = 0; i < stack.size(); i++) {
-				if (stack.at(i).first.compare(id) == 0) {
-					return &stack.at(i).second;
-				}
-			}
-		}
-		static bool has_next() {}
-		static void push(std::string id, __animated_texture_stack_var v) {
-			stack.push_back({id, v});
-		}
-		static void pop(int num) {
-			stack.pop_back();
-		}
-		static inline void (*callback)(ImGuiContext* ctx, ImGuiContextHook* hook) = [](ImGuiContext* ctx, ImGuiContextHook* hook) {
-			cursor = 0;
-			stack.clear();
-		};
-		static inline  bool has_init = false;
-		static inline ImGuiContextHook* hook = new ImGuiContextHook();;
-		AnimatedTextureStackT() {
-			hook->Type = ImGuiContextHookType_EndFramePost;
-			hook->Callback = ImGuiContextHookCallback(callback);
-		}
-	}; 
-	void AnimatedTexture(const char* id, std::vector<ImTextureID> textures, float framerate, ImVec2 pos, ImVec2 UV0 = { 0,0 }, ImVec2 UV1 = {1,1}) {
-		if (!AnimatedTextureStackT::has_init) {
-			AddContextHook(GetCurrentContext(), AnimatedTextureStackT::hook);
-			AnimatedTextureStackT::has_init = true;
-		}
-		__animated_texture_stack_var stack_obj;
-		stack_obj.framerate = framerate;
-		stack_obj.pos = pos;
-		stack_obj.textures = textures;
-		stack_obj.UV0 = UV0;
-		stack_obj.UV1 = UV1;
-		AnimatedTextureStackT::push(id, stack_obj);
-	}
-
-
 	// Android styled thumb switch 
 	// See: https://miro.medium.com/max/420/1*ccfEt-tGF1bDO6sV_yNc8w.gif
 	void ThumbSwitch(const char* str_id, bool* v, const char* fmt = "\0", ...)
@@ -677,27 +591,16 @@ namespace ImGui {
 			float millis_current;
 			std::string text;
 		};
-		static inline std::vector<ToastMessageStackVar> stack = {};
-		static ToastMessageStackVar current() {
-			return stack.at(0);
-		}
-		// Pushes a new toast onto stack, at the END
-		static void push(std::string text, float duration_ms) {
-			stack.push_back({ duration_ms,0,text });
-		}
-		// Pops the first toast in the stack.
-		static void pop() {
-			stack.erase(stack.begin());
-		}
+		static inline std::stack<ToastMessageStackVar> stack = {};
 		static inline size_t cursor = 0;
 		static inline  bool has_init = false;
 		static inline ImGuiContextHook* hook = new ImGuiContextHook();
 		static inline void (*callback)(ImGuiContext* ctx, ImGuiContextHook* hook) = [](ImGuiContext* ctx, ImGuiContextHook* hook) {
 			// todo: render current in callback.
-			if (current().millis_current >= current().millis_final) {
-				pop();
+			if (stack.top().millis_current >= stack.top().millis_final) {
+				stack.pop();
 			}
-			const char* current_text = current().text.c_str();
+			const char* current_text = stack.top().text.c_str();
 			ImVec2 screen_sz = GetIO().DisplaySize;
 			ImVec2 begin_x = {alib_percentf(screen_sz.x, 15), alib_percentf(screen_sz.x, 80) };
 			ImVec2 end_x = { alib_percentf(screen_sz.x, 85), alib_percentf(screen_sz.x, 90) };
@@ -706,6 +609,9 @@ namespace ImGui {
 		static void init() {
 			hook->Callback = callback;
 			hook->Type = ImGuiContextHookType_RenderPre;
+		}
+		static void push(const char* text, float millis) {
+			stack.push({ millis, 0, text });
 		}
 	};
 	// Creates an android-style toast message that lasts N milliseconds

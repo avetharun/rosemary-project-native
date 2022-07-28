@@ -1,3 +1,4 @@
+#pragma once
 #ifndef STB_INCLUDED
 
 /* stb_image - v2.26 - public domain image loader - http://nothings.org/stb

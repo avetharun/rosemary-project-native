@@ -1,24 +1,38 @@
-Copyright Avetharun 2022 - GNU-GPL3-a
-    You can:
-        - Use this commercially
-        - Distribute modified versions
-        - Modify this file and/or projects
-        - Patent projects that use this file
-        - Use this file and/or project privately, ie. for use in an internal server (See limitations & Exceptions)
-        - Use freely under the following conditions
-    Conditions:
-        - The user (you) are not liable for the harmful actions this program or file may cause, if any.
-        - You must disclose the source file and/or author when distributing this file or project using this license
-        - A copy of this license must be attached to the file, in verbatim
-        - The same (or similar) license must be used if you modify and license your version of this project or file
-        - Changes must be listed. ie. modifying source code must have your name and change in the file.
-        - To follow this it must either be
-            A: Beside the change (on top or on bottom, in a comment)
-            B: In the AUTHORs section of the file/project
-            C: in any changelog that references the file's changes
-    Limitations / What you cannot do
-        - Keep code closed source (*See exceptions)
-    Exceptions
-        - If code is closed source, it must be in a private setting. Examples are as follows:
-        EXA: A server used to host and/or distribute files
-        EXB: Used as a base for porting and/or in microcontrollers
+\EBC3DB]
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+\]
+Rosemary Project License [GPL-3a]
+    Copyright (C) 2022 Lillium (Avetharun) Bruno
+    https://github.com/avetharun/rosemary-project-native
+    https://raw.githubusercontent.com/avetharun/avetharun/main/gnu_gpl_3_a_LICENSE
+
+cURLpp [MIT]
+    Copyright (C) 2002-2004 Jean-Philippe Barrette-LaPierre
+    https://github.com/jpbarrette/curlpp
+    https://github.com/jpbarrette/curlpp/blob/master/doc/LICENSE
+cURL-websocket [MIT]
+    Copyright (C) 2016 Gustavo Sverzut Barbieri
+    https://github.com/barbieri/barbieri-playground/tree/master/curl-websocket
+    https://github.com/barbieri/barbieri-playground/blob/master/curl-websocket/LICENSE
+ImGui [MIT]
+    Copyright (c) 2014-2022 Omar Cornut
+    https://github.com/ocornut/imgui
+    https://github.com/ocornut/imgui/blob/master/LICENSE.txt
+dlib [BSL-1.0]
+    Copyright holder unknown.
+    http://dlib.net/
+    http://dlib.net/license.html
+stb [MIT, PUBLIC DOMAIN]
+    Copyright (C) 2017 Sean Barrett
+    https://github.com/nothings/stb
+    https://github.com/nothings/stb/blob/master/LICENSE
+ndk-helper [APACHE-2]
+    Copyright (C) 2016 The Android Open Source Project
+    https://android.googlesource.com/platform/ndk/+/master/sources/android/ndk_helper
+     http://www.apache.org/licenses/LICENSE-2.0

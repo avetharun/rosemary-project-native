@@ -50,11 +50,32 @@
     </ClInclude>
     <ClInclude Include="ani.h" />
     <ClInclude Include="cwerror.h" />
-    <ClInclude Include="imgui\implot.h">
+    <ClInclude Include="imgui\imgui_markdown.h">
       <Filter>imgui</Filter>
     </ClInclude>
-    <ClInclude Include="imgui\implot_internal.h">
-      <Filter>imgui</Filter>
+    <ClInclude Include="ndk-helper\JNIHelper.h">
+      <Filter>ndk-helper</Filter>
+    </ClInclude>
+    <ClInclude Include="ndk-helper\NDKHelper.h">
+      <Filter>ndk-helper</Filter>
+    </ClInclude>
+    <ClInclude Include="ndk-helper\gestureDetector.h">
+      <Filter>ndk-helper</Filter>
+    </ClInclude>
+    <ClInclude Include="ndk-helper\interpolator.h">
+      <Filter>ndk-helper</Filter>
+    </ClInclude>
+    <ClInclude Include="ndk-helper\perfMonitor.h">
+      <Filter>ndk-helper</Filter>
+    </ClInclude>
+    <ClInclude Include="ndk-helper\shader.h">
+      <Filter>ndk-helper</Filter>
+    </ClInclude>
+    <ClInclude Include="ndk-helper\tapCamera.h">
+      <Filter>ndk-helper</Filter>
+    </ClInclude>
+    <ClInclude Include="ndk-helper\vecmath.h">
+      <Filter>ndk-helper</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -88,11 +109,26 @@
       <Filter>dlib</Filter>
     </ClCompile>
     <ClCompile Include="curlpp.cpp" />
-    <ClCompile Include="imgui\implot.cpp">
-      <Filter>imgui</Filter>
+    <ClCompile Include="ndk-helper\JNIHelper.cpp">
+      <Filter>ndk-helper</Filter>
     </ClCompile>
-    <ClCompile Include="imgui\implot_items.cpp">
-      <Filter>imgui</Filter>
+    <ClCompile Include="ndk-helper\gestureDetector.cpp">
+      <Filter>ndk-helper</Filter>
+    </ClCompile>
+    <ClCompile Include="ndk-helper\interpolator.cpp">
+      <Filter>ndk-helper</Filter>
+    </ClCompile>
+    <ClCompile Include="ndk-helper\perfMonitor.cpp">
+      <Filter>ndk-helper</Filter>
+    </ClCompile>
+    <ClCompile Include="ndk-helper\shader.cpp">
+      <Filter>ndk-helper</Filter>
+    </ClCompile>
+    <ClCompile Include="ndk-helper\tapCamera.cpp">
+      <Filter>ndk-helper</Filter>
+    </ClCompile>
+    <ClCompile Include="ndk-helper\vecmath.cpp">
+      <Filter>ndk-helper</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -102,11 +138,18 @@
     <Filter Include="dlib">
       <UniqueIdentifier>{26b65660-5aa1-4d3e-99ae-6e2ada9d7e9f}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ndk-helper">
+      <UniqueIdentifier>{2b6aebee-26fb-431d-af89-988faafe5aef}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <None Include="cpp.hint" />
+    <None Include="ndk-helper\NOTICE">
+      <Filter>ndk-helper</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include="symbol_icon_src.txt" />
+    <Text Include="ascii_bmfm.txt" />
   </ItemGroup>
 </Project>

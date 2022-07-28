@@ -3,3 +3,6 @@
 // For more information see https://go.microsoft.com/fwlink/?linkid=865984
 #define d_typedef_func_ty(return_z, name, __VA_ARGS__) typedef return_z (*name)(##__VA_ARGS__);
 #define RSM_HOOK_BEGIN alib_inline_run([&]() {enable();});
+#define _ALIB_FQUAL
+#define NULL
+#define FLT_MAX
