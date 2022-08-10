@@ -238,10 +238,6 @@ void init(struct android_app* app)
 }
 float _time = 0.0f;
 namespace Icon {
-    rsm::ImageAsset console_64{};
-    rsm::ImageAsset settings{};
-    rsm::ImageAsset add_character{};
-    rsm::ImageAsset camera{};
     rsm::ImageAsset app{};
 };
 struct DebugConsole {
@@ -371,6 +367,7 @@ struct RSMI : rsm::GenericHook {
         glBufferData(GL_ARRAY_BUFFER, 5 * 6 * 6, vertices, GL_STATIC_DRAW);
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
         glEnableVertexAttribArray(0);
+        activecamera.setRotation({ 0,0,180 });
         
     }
     static inline std::array<glm::mat4, 3> matrix = {};
@@ -394,7 +391,8 @@ struct RSMI : rsm::GenericHook {
         }
         shader.use();
         // create transformations
-        activecamera.setRotation({ 0,0,180 });
+        glm::vec2 tmp = rsm::getDragDelta();
+        RSMI::activecamera.transform_rotation.xy(tmp.x * ImGui::GetIO().DeltaTime, tmp.y * ImGui::GetIO().DeltaTime);
         shader.setMat4("matrix", activecamera.GetFullPerspectiveMatrix());
         glBindVertexArray(VAO);
         glDrawArrays(GL_TRIANGLES, 0, 36);
@@ -619,8 +617,6 @@ struct ui_impl_main : rsm::GenericHook {
 
         // End topnav
         ImGui::BeginDragScrollableChild("__main_scrollable", { 0,0 }, true);
-        glm::vec2 tmp = rsm::getDragDelta();
-        RSMI::activecamera.transform_position.xy(tmp.x * ImGui::GetIO().DeltaTime, tmp.y * ImGui::GetIO().DeltaTime);
         ImGui::EndDragScrollableChild();
         ImGui::EndFullscreen();
     }
@@ -663,8 +659,6 @@ void tick()
     }
     WantTextInputLast = io.WantTextInput;
 
-    glEnable(GL_CULL_FACE);
-    glShadeModel(GL_SMOOTH);
     glEnable(GL_DEPTH_TEST);
     glViewport(0, 0, window_width, window_height);
     glClearColor(0x2a / 255.0f, 0x29 / 255.0f, 0x2e / 255.0f, 1.0f);

@@ -121,11 +121,8 @@
   <ItemGroup>
     <Content Include="assets\arial.ttf" />
     <Content Include="assets\icon.png" />
-    <Content Include="assets\icons\add_character.png" />
+    <Content Include="assets\icons\**" />
     <Content Include="assets\icons\app.png" />
-    <Content Include="assets\icons\camera.png" />
-    <Content Include="assets\icons\console-64.png" />
-    <Content Include="assets\icons\settings.png" />
     <Content Include="assets\licenses.txt" />
     <Content Include="assets\proggyclean.ttf" />
     <Content Include="assets\strings.json" />

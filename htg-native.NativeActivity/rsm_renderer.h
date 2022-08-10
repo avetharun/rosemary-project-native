@@ -245,7 +245,7 @@ namespace rsm {
             // note: this is INVERTED! Use setPosition() and getPosition() respectively.
             glm::vec3 m_lookat_pos = glm::vec3(0.0f, 0.0f, 0.0f);
             float lookat_distance;
-            glm::vec3 m_position = glm::vec3{0.0f, 0.0f, -32.0f};
+            glm::vec3 m_position = glm::vec3{0.0f, 0.0f, -12.0f};
             // in degrees (0-360)
             glm::vec3 m_rotation = glm::vec3(0.0f, 0.0f, 180.0f);
             glm::mat4 m_view = glm::mat4(1.0f);
