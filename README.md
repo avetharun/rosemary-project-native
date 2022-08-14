@@ -1,3 +1,5 @@
+⚠ Project abandoned until further notice!
+
 # Rosemary Project
 An implementation of [Hitogata](https://sites.google.com/site/vhitogata/), a VTubing software for Android and Desktop.
 
